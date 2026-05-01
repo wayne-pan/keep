@@ -802,6 +802,14 @@ cp "$PROJECT_DIR/scripts/pricing.json" "$CLAUDE_DIR/scripts/pricing.json"
 chmod +x "$CLAUDE_DIR/scripts/statusline.py"
 ok "statusline + pricing (run /statusline:setup to enable)"
 
+# ── Statusline (shared, for all agents) ──
+SHARED_SCRIPTS="$HOME/.local/share/keep/scripts"
+mkdir -p "$SHARED_SCRIPTS"
+cp "$PROJECT_DIR/scripts/statusline.py" "$SHARED_SCRIPTS/statusline.py"
+cp "$PROJECT_DIR/scripts/pricing.json" "$SHARED_SCRIPTS/pricing.json"
+chmod +x "$SHARED_SCRIPTS/statusline.py"
+ok "statusline (shared at $SHARED_SCRIPTS)"
+
 # ── Dashboard (show.py) ──
 if [ -f "$PROJECT_DIR/scripts/show.py" ]; then
   cp "$PROJECT_DIR/scripts/show.py" "$CLAUDE_DIR/scripts/show.py"
@@ -1023,6 +1031,7 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
   [ -f "$LOCAL_BIN/codedb" ] && ok "codedb available" || warn "codedb not found"
   command -v browser-use &>/dev/null && ok "browser-use available" || warn "browser-use not found"
   [ -f "$CLAUDE_DIR/scripts/statusline.py" ] && ok "statusline script" || warn "statusline not found"
+  [ -f "$HOME/.local/share/keep/scripts/statusline.py" ] && ok "statusline (shared)" || warn "statusline shared not found"
   python3 -c "import json; d=json.load(open('$HOME/.claude.json')); assert 'mind' in d.get('mcpServers',{})" 2>/dev/null && ok "mind MCP" || warn "mind MCP not registered"
   python3 -c "import json; d=json.load(open('$HOME/.claude.json')); assert 'codedb' in d.get('mcpServers',{})" 2>/dev/null && ok "codedb MCP" || warn "codedb MCP not registered"
   [ -f "$CLAUDE_DIR/scripts/show.py" ] && ok "dashboard (show.py)" || warn "dashboard not found"
