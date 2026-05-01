@@ -1,0 +1,13 @@
+{
+  "name": "claude-code",
+  "detect": "command -v claude",
+  "config_path": "$HOME/.claude.json",
+  "config_format": "json",
+  "mcp_key": "mcpServers",
+  "config_template": {
+    "type": "stdio",
+    "command": "{{python}}",
+    "args": ["{{server_path}}"],
+    "env": {}
+  }
+}

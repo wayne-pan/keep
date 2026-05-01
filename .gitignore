@@ -1,0 +1,42 @@
+# Runtime data
+.git/
+__pycache__/
+*.pyc
+*.pyo
+learnings.jsonl
+
+# Benchmark data
+.sprint/
+codedb.snapshot
+
+# Code intelligence index
+.codedb/
+
+# Local Claude config (personal permissions, paths)
+.claude/
+
+# Python cache
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Editor artifacts
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit)
+.env
+.env.*
+!.env.example
+credentials.json
+*.pem
+*.key

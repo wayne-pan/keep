@@ -1,0 +1,7 @@
+{
+  "name": "openclaw",
+  "detect": "command -v openclaw || [ -d '$HOME/.config/openclaw' ]",
+  "config_path": "$HOME/.config/openclaw/config.json",
+  "config_format": "json",
+  "mcp_key": "mcpServers"
+}

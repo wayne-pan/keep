@@ -1,0 +1,12 @@
+{
+  "name": "opencode",
+  "detect": "command -v opencode",
+  "config_path": "$HOME/.config/opencode/config.json",
+  "config_format": "json",
+  "mcp_key": "mcpServers",
+  "config_template": {
+    "command": "{{python}}",
+    "args": ["{{server_path}}"],
+    "env": {}
+  }
+}

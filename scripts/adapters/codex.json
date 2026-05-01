@@ -1,0 +1,15 @@
+{
+  "name": "codex",
+  "detect": "command -v codex || [ -d '$HOME/.codex' ]",
+  "config_path": "$HOME/.codex/config.toml",
+  "config_format": "toml",
+  "mcp_key": "mcp_servers",
+  "instructions_file": "$HOME/.codex/AGENTS.md",
+  "hooks_path": "$HOME/.codex/hooks.json",
+  "openai_endpoints": {
+    "deepseek": "https://api.deepseek.com/v1",
+    "glm": "https://open.bigmodel.cn/api/paas/v4",
+    "kimi": "https://api.moonshot.cn/v1",
+    "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  }
+}

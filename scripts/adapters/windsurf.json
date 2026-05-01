@@ -1,0 +1,12 @@
+{
+  "name": "windsurf",
+  "detect": "command -v windsurf || [ -d '$HOME/.windsurf' ]",
+  "config_path": "$HOME/.windsurf/mcp.json",
+  "config_format": "json",
+  "mcp_key": "mcpServers",
+  "config_template": {
+    "command": "{{python}}",
+    "args": ["{{server_path}}"],
+    "env": {}
+  }
+}

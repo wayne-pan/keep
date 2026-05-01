@@ -1,0 +1,28 @@
+{
+  "_comment": "Model pricing per 1M tokens. Edit directly or use /statusline:pricing to manage.",
+  "_cache": {
+    "_comment": "Cache token multipliers relative to input price. Anthropic: write 1.25x, read 0.1x. Set to 0 if provider has no cache billing.",
+    "write_mult": 1.25,
+    "read_mult": 0.10
+  },
+  "_reference": {
+    "_comment": "The Anthropic model Claude Code uses to calculate total_cost_usd. Used for third-party cost adjustment.",
+    "model": "sonnet"
+  },
+  "models": {
+    "opus":      { "in": 15,   "out": 75,  "provider": "anthropic", "context": 200000 },
+    "sonnet":    { "in": 3,    "out": 15,  "provider": "anthropic", "context": 200000 },
+    "haiku":     { "in": 0.8,  "out": 4,   "provider": "anthropic", "context": 200000 },
+    "glm-5":     { "in": 0.5,  "out": 0.5, "provider": "zhipu", "context": 200000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "glm-4":     { "in": 0.1,  "out": 0.1, "provider": "zhipu", "context": 128000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "deepseek":  { "in": 0.27, "out": 1.10, "provider": "deepseek", "context": 128000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "kimi":      { "in": 0.6,  "out": 0.6, "provider": "moonshot", "context": 256000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "qwen3":     { "in": 0.5,  "out": 2.0, "provider": "alibaba", "context": 262144, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "qwen2.5":   { "in": 0.8,  "out": 2.4, "provider": "alibaba", "context": 131072, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "gpt-4o":    { "in": 2.5,  "out": 10,  "provider": "openai", "context": 128000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "gpt-4.1":   { "in": 2,    "out": 8,   "provider": "openai", "context": 1000000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "o3":        { "in": 2,    "out": 8,   "provider": "openai", "context": 200000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "o4-mini":   { "in": 1.1,  "out": 4.4, "provider": "openai", "context": 200000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
+    "gemini":    { "in": 1.25, "out": 10,  "provider": "google", "context": 1000000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 }
+  }
+}
