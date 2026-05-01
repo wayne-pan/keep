@@ -85,13 +85,13 @@ USAGE_EOF
   exit 0
 }
 
-for arg in "$@"; do
-  case "$arg" in
-    --mx)             MX_ONLY=true ;;
-    --adapter)        shift; ADAPTER="${1:-}" ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mx)             MX_ONLY=true; shift ;;
+    --adapter)        shift; ADAPTER="${1:-}"; shift ;;
     --list-adapters)  list_adapters ;;
     --help)           usage ;;
-    *)                die "Unknown option: $arg. Use --help for usage." ;;
+    *)                die "Unknown option: $1. Use --help for usage." ;;
   esac
 done
 
@@ -102,11 +102,18 @@ if [ -n "$ADAPTER" ]; then
   if [ ! -f "$ADAPTER_FILE" ]; then
     die "Adapter not found: $ADAPTER. Run with --list-adapters to see available adapters."
   fi
-  MIND_SERVER="$HOME/.mind/mem/server.py"
-  MIND_VENV="$HOME/.mind/venv"
-  if [ ! -f "$MIND_SERVER" ]; then
-    die "Mind server not found at $MIND_SERVER. Run install.sh first."
+  # Codex/OpenCode need full harness deployment — defer after function definitions
+  if [ "$ADAPTER" = "codex" ]; then
+    CODEX_ADAPTER=true
+  elif [ "$ADAPTER" = "opencode" ]; then
+    OPENCODE_ADAPTER=true
   fi
+  if [ "$ADAPTER" != "codex" ] && [ "$ADAPTER" != "opencode" ]; then
+    MIND_SERVER="$HOME/.mind/mem/server.py"
+    MIND_VENV="$HOME/.mind/venv"
+    if [ ! -f "$MIND_SERVER" ]; then
+      die "Mind server not found at $MIND_SERVER. Run install.sh first."
+    fi
 
   DETECT=$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('detect',''))")
   CONFIG_PATH=$(eval echo "$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('config_path',''))")")
@@ -196,7 +203,8 @@ else:
 PYEOF
   ok "$ADAPTER adapter configured"
   info "Restart $ADAPTER to use mind+codedb."
-  exit 0
+  fi  # end generic adapter block
+  [ "${CODEX_ADAPTER:-}" != "true" ] && [ "${OPENCODE_ADAPTER:-}" != "true" ] && exit 0
 fi
 
 echo ""
@@ -230,15 +238,14 @@ install_mx() {
   ok "mx + config"
 }
 
-# ── Write ~/.claude/env with mx shell function ──
+# ── Write ~/.mx_env (shared by Claude Code, Codex, etc.) ──
 configure_mx_env() {
-  mkdir -p "$CLAUDE_DIR"
-  ENV_FILE="$CLAUDE_DIR/env"
+  ENV_FILE="$HOME/.mx_env"
   info "Writing env..."
 
   cat > "$ENV_FILE" << 'ENVEOF'
 #!/bin/bash
-# Source this file: . "$HOME/.claude/env"
+# Source this file: . "$HOME/.mx_env"
 
 export PATH="$HOME/.local/bin:$PATH"
 ENVEOF
@@ -247,12 +254,12 @@ ENVEOF
 
   cat >> "$ENV_FILE" << 'ENVEOF'
 
-[[ -f "$HOME/.mx_config" ]] && . "$HOME/.mx_config" >/dev/null 2>&1
+[[ -f "$HOME/.mx_config" ]] && { . "$HOME/.mx_config" >/dev/null 2>&1; while IFS='=' read -r _var _rest; do export "$_var"; done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*(_API_KEY|_MODEL)=' "$HOME/.mx_config"); }
 
 mx() {
   local script="$HOME/.local/bin/mx.sh"
   case "$1" in
-    ""|help|-h|--help|status|st|config|cfg|set|save-account|switch-account|list-accounts|delete-account|current-account|codex)
+    ""|help|-h|--help|status|st|config|cfg|set|save-account|switch-account|list-accounts|delete-account|current-account|codex|opencode)
       "$script" "$@" ;;
     *) eval "$("$script" "$@")" ;;
   esac
@@ -266,15 +273,22 @@ ENVEOF
   ok "$ENV_FILE"
 
   # Source env from profile
-  PROFILE="$HOME/.bashrc"
-  [ -f "$HOME/.zshrc" ] && [ -n "${ZSH_VERSION:-}" ] && PROFILE="$HOME/.zshrc"
-  if ! grep -qF '.claude/env' "$PROFILE" 2>/dev/null; then
-    echo '' >> "$PROFILE"
-    echo '# Claude Code environment' >> "$PROFILE"
-    echo '. "$HOME/.claude/env"' >> "$PROFILE"
-  fi
+  # Add to .bashrc (interactive shells) and .profile (login shells)
+  # Both are needed: .bashrc has early-return guard for non-interactive,
+  # so Codex launched from login shell won't get env vars from .bashrc alone.
+  for RCFILE in "$HOME/.bashrc" "$HOME/.profile"; do
+    [ -f "$RCFILE" ] || continue
+    if ! grep -qF '.mx_env' "$RCFILE" 2>/dev/null; then
+      # Remove stale .claude/env source line if present
+      sed -i '/\.claude\/env/d' "$RCFILE" 2>/dev/null || true
+      echo '' >> "$RCFILE"
+      echo '# mx environment (shared by Claude Code, Codex, etc.)' >> "$RCFILE"
+      echo '. "$HOME/.mx_env"' >> "$RCFILE"
+    fi
+  done
+  [ -f "$HOME/.zshrc" ] && [ -n "${ZSH_VERSION:-}" ] && ! grep -qF '.mx_env' "$HOME/.zshrc" 2>/dev/null && echo '. "$HOME/.mx_env"' >> "$HOME/.zshrc"
   source "$ENV_FILE" 2>/dev/null || true
-  ok "env sourced in $PROFILE"
+  ok "env sourced in shell profiles"
 }
 
 # ================================================================
@@ -447,6 +461,25 @@ install_codex_cli() {
 }
 install_codex_cli
 
+# ── OpenCode CLI ──
+install_opencode_cli() {
+  export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+  if command -v opencode &>/dev/null; then
+    ok "opencode CLI (already installed)"
+    return
+  fi
+  info "Installing OpenCode CLI..."
+  # Try curl installer first (official), fallback to npm
+  if curl -fsSL https://opencode.ai/install | bash 2>/dev/null; then
+    ok "opencode CLI"
+  elif npm install -g opencode-ai 2>/dev/null; then
+    ok "opencode CLI"
+  else
+    warn "opencode CLI: install failed, skipping"
+  fi
+}
+install_opencode_cli
+
 # ── uv (Python tool runner, needed for browser-use) ──
 if ! command -v uv &>/dev/null; then
   info "Installing uv..."
@@ -532,9 +565,9 @@ deploy_codex_harness() {
   info "Deploying Codex harness..."
 
   local CODEX_DIR="$HOME/.codex"
-  mkdir -p "$CODEX_DIR"/{hooks}
+  mkdir -p "$CODEX_DIR/hooks"
 
-  # 1. AGENTS.md — concatenate rules into instructions
+  # 1. AGENTS.md — concatenate rules + skills into instructions
   cat "$PROJECT_DIR/CLAUDE.md" > "$CODEX_DIR/AGENTS.md"
   echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
   for f in "$PROJECT_DIR"/rules/*.md; do
@@ -542,7 +575,15 @@ deploy_codex_harness() {
     cat "$f" >> "$CODEX_DIR/AGENTS.md"
     echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
   done
-  ok "AGENTS.md"
+  # Append skills (Codex reads only AGENTS.md, so embed skill content)
+  for skill_dir in "$PROJECT_DIR"/skills/*/; do
+    skill_file="$skill_dir/SKILL.md"
+    [ -f "$skill_file" ] || continue
+    echo -e "\n## Skill: $(basename "$skill_dir")\n" >> "$CODEX_DIR/AGENTS.md"
+    cat "$skill_file" >> "$CODEX_DIR/AGENTS.md"
+    echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
+  done
+  ok "AGENTS.md (rules + skills)"
 
   # 2. hooks/ — copy keep hook scripts
   cp "$PROJECT_DIR"/hooks/*.sh "$CODEX_DIR/hooks/" 2>/dev/null
@@ -550,7 +591,8 @@ deploy_codex_harness() {
   ok "Codex hooks ($(ls "$CODEX_DIR/hooks/"*.sh 2>/dev/null | wc -l) scripts)"
 
   # 3. config.toml — generate with MCP servers + model
-  MEM_PYTHON="$MIND_DIR/venv/bin/python3"
+  local MIND="$HOME/.mind"
+  local MEM_PYTHON="$MIND/venv/bin/python3"
   [ ! -x "$MEM_PYTHON" ] && MEM_PYTHON="python3"
   cat > "$CODEX_DIR/config.toml" << TOMLEOF
 # Generated by keep — $(date +%Y-%m-%d)
@@ -559,13 +601,13 @@ model_instructions_file = "$CODEX_DIR/AGENTS.md"
 TOMLEOF
 
   # Append MCP server sections
-  if [ -f "$MIND_DIR/mem/server.py" ]; then
+  if [ -f "$MIND/mem/server.py" ]; then
     cat >> "$CODEX_DIR/config.toml" << TOMLEOF
 
 [mcp_servers.mind]
 type = "stdio"
 command = "$MEM_PYTHON"
-args = ["$MIND_DIR/mem/server.py"]
+args = ["$MIND/mem/server.py"]
 TOMLEOF
   fi
   if [ -f "$LOCAL_BIN/codedb" ]; then
@@ -644,7 +686,90 @@ PYEOF
 
   ok "Codex harness deployed to $CODEX_DIR"
 }
-deploy_codex_harness
+
+# ── OpenCode CLI Harness ──
+deploy_opencode_harness() {
+  # opencode installs to ~/.opencode/bin — ensure it's in PATH
+  export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+  if ! command -v opencode &>/dev/null; then
+    info "OpenCode not detected, skipping harness"
+    return
+  fi
+  info "Deploying OpenCode harness..."
+
+  local CODEX_DIR="$HOME/.codex"
+  local OPENCODE_DIR="$HOME/.config/opencode"
+  mkdir -p "$OPENCODE_DIR"
+
+  # 1. opencode.json — generate with MCP servers (no model provider selected yet)
+  local MIND="$HOME/.mind"
+  local MEM_PYTHON="$MIND/venv/bin/python3"
+  [ ! -x "$MEM_PYTHON" ] && MEM_PYTHON="python3"
+
+  python3 - "$OPENCODE_DIR/opencode.json" "$MEM_PYTHON" "$MIND/mem/server.py" "$LOCAL_BIN/codedb" << 'PYEOF'
+import json, sys, os
+
+config_path = sys.argv[1]
+mind_python = sys.argv[2]
+mind_server = sys.argv[3]
+codedb_bin = sys.argv[4]
+
+# Read existing config to preserve model/provider
+try:
+    with open(config_path) as f:
+        data = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    data = {}
+
+data.setdefault("$schema", "https://opencode.ai/config.json")
+
+# MCP servers — OpenCode format: type="local", command=[array], enabled=true
+mcp = data.setdefault("mcp", {})
+if os.path.isfile(mind_server):
+    mcp["mind"] = {
+        "type": "local",
+        "command": [mind_python, mind_server],
+        "enabled": True
+    }
+if os.path.isfile(codedb_bin):
+    mcp["codedb"] = {
+        "type": "local",
+        "command": [codedb_bin, "mcp"],
+        "enabled": True
+    }
+
+# Global instructions — point at ~/.claude/rules
+data["instructions"] = [
+    "$HOME/.claude/CLAUDE.md",
+    "$HOME/.claude/rules/*.md"
+]
+
+with open(config_path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+
+registered = [k for k in ("mind", "codedb") if k in mcp]
+print(f"  Config written to {config_path} (MCP: {', '.join(registered)})")
+PYEOF
+  ok "opencode.json (MCP servers)"
+
+  # 2. No hooks — OpenCode doesn't have a hooks system
+  # 3. No instructions file — OpenCode reads from instructions array in config
+
+  ok "OpenCode harness deployed to $OPENCODE_DIR"
+}
+
+# ── Handle --adapter codex/opencode (needs functions defined above) ──
+if [ "${CODEX_ADAPTER:-}" = "true" ]; then
+  install_opencode_cli  # also install opencode if available
+  deploy_codex_harness
+  exit 0
+fi
+if [ "${OPENCODE_ADAPTER:-}" = "true" ]; then
+  install_opencode_cli
+  deploy_opencode_harness
+  exit 0
+fi
 
 # ── Mind MCP server (self-contained at ~/.mind) ──
 MIND_DIR="$HOME/.mind"
@@ -905,6 +1030,8 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
   [ -f "$HOME/.codex/config.toml" ] && ok "codex config.toml" || warn "codex config.toml not found"
   [ -f "$HOME/.codex/AGENTS.md" ] && ok "codex AGENTS.md" || warn "codex AGENTS.md not found"
   [ -f "$HOME/.codex/hooks.json" ] && ok "codex hooks.json" || warn "codex hooks.json not found"
+  command -v opencode &>/dev/null && ok "opencode CLI" || warn "opencode CLI not found"
+  [ -f "$HOME/.config/opencode/opencode.json" ] && ok "opencode config" || warn "opencode config not found"
 
   echo ""
   info "Deployed configuration:"
@@ -919,6 +1046,8 @@ ok "Environment snapshot"
 
 # ── Adapter auto-detection ──
 phase "Phase 5: Adapter Auto-Detection"
+# Ensure opencode binary is findable (installs to ~/.opencode/bin)
+export PATH="$HOME/.opencode/bin:$PATH"
 if [ -d "$ADAPTERS_DIR" ]; then
   MIND_SERVER="$HOME/.mind/mem/server.py"
   MEM_PYTHON="$HOME/.mind/venv/bin/python3"
@@ -927,7 +1056,22 @@ if [ -d "$ADAPTERS_DIR" ]; then
     [ -f "$adapter_file" ] || continue
     adapter_name="$(basename "$adapter_file" .json)"
     [ "$adapter_name" = "claude-code" ] && continue  # Already configured
-    [ "$adapter_name" = "codex" ] && continue         # Handled by deploy_codex_harness
+    if [ "$adapter_name" = "codex" ]; then
+      # Codex needs full harness, not just MCP config
+      if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
+        info "Detected: codex — deploying full harness..."
+        deploy_codex_harness && ok "codex adapter" || warn "codex adapter failed"
+      fi
+      continue
+    fi
+    if [ "$adapter_name" = "opencode" ]; then
+      # OpenCode needs full harness, not just MCP config
+      if command -v opencode &>/dev/null; then
+        info "Detected: opencode — deploying harness..."
+        deploy_opencode_harness && ok "opencode adapter" || warn "opencode adapter failed"
+      fi
+      continue
+    fi
     detect_cmd=$(python3 -c "import json; print(json.load(open('$adapter_file')).get('detect','false'))" 2>/dev/null || echo "false")
     if eval "$detect_cmd" &>/dev/null; then
       info "Detected: $adapter_name — configuring..."
@@ -951,6 +1095,7 @@ printf "${GREEN}║${NC}                                                        
 printf "${GREEN}║${NC}  ${CYAN}claude${NC}             Main orchestrator                 ${GREEN}║${NC}\n"
 printf "${GREEN}║${NC}  ${CYAN}mx${NC}                 Model switcher (mx set)           ${GREEN}║${NC}\n"
 printf "${GREEN}║${NC}  ${CYAN}codex${NC}              Codex CLI (OpenAI)                ${GREEN}║${NC}\n"
+printf "${GREEN}║${NC}  ${CYAN}opencode${NC}           OpenCode CLI                      ${GREEN}║${NC}\n"
 printf "${GREEN}║${NC}  ${CYAN}codedb${NC}             Code intelligence (MCP)           ${GREEN}║${NC}\n"
 printf "${GREEN}║${NC}  ${CYAN}browser-use${NC}        Headless browser automation       ${GREEN}║${NC}\n"
 printf "${GREEN}║${NC}  ${CYAN}nto${NC}                Native token optimizer             ${GREEN}║${NC}\n"

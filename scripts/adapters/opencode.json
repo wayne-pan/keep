@@ -1,12 +1,16 @@
 {
   "name": "opencode",
   "detect": "command -v opencode",
-  "config_path": "$HOME/.config/opencode/config.json",
+  "config_path": "$HOME/.config/opencode/opencode.json",
   "config_format": "json",
-  "mcp_key": "mcpServers",
-  "config_template": {
-    "command": "{{python}}",
-    "args": ["{{server_path}}"],
-    "env": {}
+  "mcp_key": "mcp",
+  "openai_endpoints": {
+    "deepseek": "https://api.deepseek.com/v1",
+    "glm": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "kimi": "https://api.moonshot.cn/v1",
+    "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "longcat": "https://api.longcat.chat/v1",
+    "minimax": "https://api.minimax.io/v1",
+    "seed": "https://ark.cn-beijing.volces.com/api/v3"
   }
 }

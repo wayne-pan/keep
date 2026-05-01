@@ -8,7 +8,7 @@
   "hooks_path": "$HOME/.codex/hooks.json",
   "openai_endpoints": {
     "deepseek": "https://api.deepseek.com/v1",
-    "glm": "https://open.bigmodel.cn/api/paas/v4",
+    "glm": "https://open.bigmodel.cn/api/coding/paas/v4",
     "kimi": "https://api.moonshot.cn/v1",
     "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1"
   }
