@@ -795,20 +795,25 @@ ok "mind MCP server ($MIND_DIR)"
 # ================================================================
 phase "Phase 4/4: Settings + Smoke Test"
 
-# ── Statusline (deploy script, enable via /statusline:setup) ──
-mkdir -p "$CLAUDE_DIR/scripts"
-cp "$PROJECT_DIR/scripts/statusline.py" "$CLAUDE_DIR/scripts/statusline.py"
-cp "$PROJECT_DIR/scripts/pricing.json" "$CLAUDE_DIR/scripts/pricing.json"
-chmod +x "$CLAUDE_DIR/scripts/statusline.py"
-ok "statusline + pricing (run /statusline:setup to enable)"
-
-# ── Statusline (shared, for all agents) ──
+# ── Statusline (deploy to shared canonical location) ──
 SHARED_SCRIPTS="$HOME/.local/share/keep/scripts"
-mkdir -p "$SHARED_SCRIPTS"
-cp "$PROJECT_DIR/scripts/statusline.py" "$SHARED_SCRIPTS/statusline.py"
-cp "$PROJECT_DIR/scripts/pricing.json" "$SHARED_SCRIPTS/pricing.json"
-chmod +x "$SHARED_SCRIPTS/statusline.py"
-ok "statusline (shared at $SHARED_SCRIPTS)"
+if [ -f "$PROJECT_DIR/scripts/statusline.py" ] && [ -f "$PROJECT_DIR/scripts/pricing.json" ]; then
+  mkdir -p "$SHARED_SCRIPTS"
+  if cp "$PROJECT_DIR/scripts/statusline.py" "$SHARED_SCRIPTS/statusline.py" && \
+     cp "$PROJECT_DIR/scripts/pricing.json" "$SHARED_SCRIPTS/pricing.json"; then
+    chmod +x "$SHARED_SCRIPTS/statusline.py"
+    ok "statusline (shared at $SHARED_SCRIPTS)"
+  else
+    warn "statusline: shared deploy failed"
+  fi
+  # Claude Code: symlink from ~/.claude/scripts/ to shared canonical location
+  mkdir -p "$CLAUDE_DIR/scripts"
+  ln -sf "$SHARED_SCRIPTS/statusline.py" "$CLAUDE_DIR/scripts/statusline.py"
+  ln -sf "$SHARED_SCRIPTS/pricing.json" "$CLAUDE_DIR/scripts/pricing.json"
+  ok "statusline symlinks (~/.claude/scripts/ → shared)"
+else
+  warn "statusline: source files not found in $PROJECT_DIR/scripts/"
+fi
 
 # ── Dashboard (show.py) ──
 if [ -f "$PROJECT_DIR/scripts/show.py" ]; then
@@ -1030,8 +1035,8 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
   [ -f "$LOCAL_BIN/mx.sh" ] && ok "mx available" || warn "mx not found"
   [ -f "$LOCAL_BIN/codedb" ] && ok "codedb available" || warn "codedb not found"
   command -v browser-use &>/dev/null && ok "browser-use available" || warn "browser-use not found"
-  [ -f "$CLAUDE_DIR/scripts/statusline.py" ] && ok "statusline script" || warn "statusline not found"
   [ -f "$HOME/.local/share/keep/scripts/statusline.py" ] && ok "statusline (shared)" || warn "statusline shared not found"
+  [ -L "$CLAUDE_DIR/scripts/statusline.py" ] && ok "statusline symlink" || warn "statusline symlink not found"
   python3 -c "import json; d=json.load(open('$HOME/.claude.json')); assert 'mind' in d.get('mcpServers',{})" 2>/dev/null && ok "mind MCP" || warn "mind MCP not registered"
   python3 -c "import json; d=json.load(open('$HOME/.claude.json')); assert 'codedb' in d.get('mcpServers',{})" 2>/dev/null && ok "codedb MCP" || warn "codedb MCP not registered"
   [ -f "$CLAUDE_DIR/scripts/show.py" ] && ok "dashboard (show.py)" || warn "dashboard not found"

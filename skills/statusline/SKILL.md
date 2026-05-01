@@ -12,23 +12,37 @@ Zero-dependency Python statusline replacing claude-hud. Shows model, tokens, cac
 
 ## Agent Detection
 
-Statusline setup varies by agent. Detect which agent is running:
+Statusline setup varies by agent. Use this detection snippet everywhere (defined once, reference from other sections):
 
 ```bash
-if [ "${CLAUDECODE:-}" = "1" ]; then echo "claude-code"
-elif [ "${OPENCODE:-}" != "" ] || command -v opencode &>/dev/null; then echo "opencode"
-elif [ "${CODEX_HOME:-}" != "" ] || command -v codex &>/dev/null; then echo "codex"
-else echo "unknown"
-fi
+detect_agent() {
+  local count=0 agent=""
+  if [ "${CLAUDECODE:-}" = "1" ]; then agent="claude-code"; count=$((count+1)); fi
+  if [ "${OPENCODE:-}" != "" ]; then agent="opencode"; count=$((count+1)); fi
+  if [ "${CODEX_HOME:-}" != "" ]; then agent="codex"; count=$((count+1)); fi
+  # Fallback: only if no env var matched
+  if [ "$count" = "0" ]; then
+    if command -v claude &>/dev/null; then agent="claude-code"
+    elif command -v opencode &>/dev/null; then agent="opencode"
+    elif command -v codex &>/dev/null; then agent="codex"
+    else agent="unknown"
+    fi
+  elif [ "$count" -gt 1 ]; then
+    echo "WARNING: multiple agent env vars set ($count), using: $agent" >&2
+  fi
+  echo "$agent"
+}
 ```
 
 **Agent statusline support:**
 
-| Agent | Native statusLine | Config path |
-|-------|-------------------|-------------|
-| Claude Code | Yes | `~/.claude/settings.json` |
-| OpenCode | No (issue #8619) | N/A |
-| Codex | No | N/A |
+| Agent | Native statusLine | Script location |
+|-------|-------------------|-----------------|
+| Claude Code | Yes | `~/.claude/scripts/` (symlinks to shared) |
+| OpenCode | No (issue #8619) | `~/.local/share/keep/scripts/` |
+| Codex | No | `~/.local/share/keep/scripts/` |
+
+**Canonical data location**: `~/.local/share/keep/scripts/pricing.json` — single source of truth. Claude Code's `~/.claude/scripts/pricing.json` is a symlink to this file.
 
 ## Setup: `/keep:statusline:setup`
 
@@ -36,7 +50,7 @@ Configure the native statusline. Run once, persists across sessions.
 
 ### Step 0: Detect Agent
 
-Run the detection command above. Branch based on result.
+Run `detect_agent` from the Agent Detection section above. Branch based on result.
 
 ### Step 1: Verify Python
 
@@ -48,44 +62,34 @@ If not found, tell user to install Python 3.8+ and re-run `/keep:statusline:setu
 
 ### Step 2: Deploy Files
 
-**For Claude Code** (deploy to agent-specific + shared location):
-```bash
-# Agent-specific (for statusLine command)
-mkdir -p ~/.claude/scripts
-cp scripts/statusline.py ~/.claude/scripts/statusline.py
-cp scripts/pricing.json ~/.claude/scripts/pricing.json
-chmod +x ~/.claude/scripts/statusline.py
+Always deploy to the shared canonical location. For Claude Code, also create symlinks from `~/.claude/scripts/`.
 
-# Shared (for other agents)
+**All agents:**
+```bash
+# Shared canonical location
 mkdir -p ~/.local/share/keep/scripts
 cp scripts/statusline.py ~/.local/share/keep/scripts/statusline.py
 cp scripts/pricing.json ~/.local/share/keep/scripts/pricing.json
 chmod +x ~/.local/share/keep/scripts/statusline.py
 ```
 
-**For OpenCode / Codex / Unknown** (deploy to shared location only):
+**Additionally for Claude Code** (symlink so statusLine command finds the script):
 ```bash
-mkdir -p ~/.local/share/keep/scripts
-cp scripts/statusline.py ~/.local/share/keep/scripts/statusline.py
-cp scripts/pricing.json ~/.local/share/keep/scripts/pricing.json
-chmod +x ~/.local/share/keep/scripts/statusline.py
+mkdir -p ~/.claude/scripts
+ln -sf ~/.local/share/keep/scripts/statusline.py ~/.claude/scripts/statusline.py
+ln -sf ~/.local/share/keep/scripts/pricing.json ~/.claude/scripts/pricing.json
 ```
 
 ### Step 3: Test
 
-**Claude Code:**
 ```bash
-echo '{"model":{"display_name":"test"},"context_window":{"used_percentage":50},"cwd":"/tmp"}' | python3 -u ~/.claude/scripts/statusline.py
-```
-
-**OpenCode / Codex / Unknown:**
-```bash
+# Use the script at shared location (works for all agents)
 echo '{"model":{"display_name":"test"},"context_window":{"used_percentage":50},"cwd":"/tmp"}' | python3 -u ~/.local/share/keep/scripts/statusline.py
 ```
 
 If no output or errors, debug before proceeding. Common issues:
 - Missing python3: install Python 3.8+
-- Permission denied: `chmod +x` the script
+- Permission denied: `chmod +x ~/.local/share/keep/scripts/statusline.py`
 
 ### Step 4: Configure Agent
 
@@ -134,8 +138,9 @@ Deploy to shared location (`~/.local/share/keep/scripts/`) and inform user that 
 
 **If not working**, debug:
 1. Check settings.json has correct `statusLine.command`
-2. Test command manually: `echo '{}' | python3 -u ~/.claude/scripts/statusline.py`
-3. Check for Python stdout buffering: ensure `-u` flag is in the command
+2. Check symlinks: `ls -la ~/.claude/scripts/statusline.py` → should point to `~/.local/share/keep/scripts/statusline.py`
+3. Test command manually: `echo '{}' | python3 -u ~/.local/share/keep/scripts/statusline.py`
+4. Check for Python stdout buffering: ensure `-u` flag is in the command
 
 **For OpenCode / Codex**, confirm the script is deployed and show the manual test command.
 
@@ -143,18 +148,19 @@ Deploy to shared location (`~/.local/share/keep/scripts/`) and inform user that 
 
 Manage model pricing table. All prices are per 1M tokens (USD).
 
-Config file location (use the first that exists):
-1. `~/.claude/scripts/pricing.json` (Claude Code deployment)
-2. `~/.local/share/keep/scripts/pricing.json` (shared deployment)
+**Canonical config file**: `~/.local/share/keep/scripts/pricing.json`
+(Symlinked from `~/.claude/scripts/pricing.json` for Claude Code — single source of truth, no drift.)
 
 ### View Current Pricing
 
 ```bash
-PRICING="${HOME}/.claude/scripts/pricing.json"
-[ -f "$PRICING" ] || PRICING="${HOME}/.local/share/keep/scripts/pricing.json"
-cat "$PRICING" | python3 -c "
+PRICING="${HOME}/.local/share/keep/scripts/pricing.json"
+if [ ! -f "$PRICING" ]; then
+  echo "Error: pricing file not found at $PRICING"; exit 1
+fi
+python3 -c "
 import json, sys
-data = json.load(sys.stdin)
+data = json.load(open('$PRICING'))
 print('Model pricing (per 1M tokens):')
 print(f'{'Model':<12} {'Input':>8} {'Output':>8}  Provider')
 print('-' * 44)
@@ -176,11 +182,10 @@ Ask the user for model details:
 - Output price (per 1M tokens)
 - Provider name (optional)
 
-Then update the pricing file (resolve path as above):
-- Read the existing file
-- Add/update the entry in `models`
-- Write back with proper formatting
-- If both locations exist, update both
+Then update the canonical pricing file:
+1. Read `~/.local/share/keep/scripts/pricing.json`
+2. Add/update the entry in `models`
+3. Write back with proper formatting
 
 Example entry:
 ```json
@@ -189,13 +194,13 @@ Example entry:
 
 ### Remove Model
 
-Remove the entry from `models` in the pricing file. If both locations exist, update both.
+Remove the entry from `models` in `~/.local/share/keep/scripts/pricing.json`.
 
 ### Update Cache Multipliers
 
 Ask the user for the cache multiplier values. Anthropic standard: write 1.25x, read 0.1x. If the provider doesn't support cache billing, set both to 0.
 
-Update the `_cache` section in the pricing file.
+Update the `_cache` section in `~/.local/share/keep/scripts/pricing.json`.
 
 ### Find Model Pricing
 
@@ -209,26 +214,40 @@ If the user asks about pricing for a model not in the table:
 Show current statusline configuration and health.
 
 ```bash
-# Detect agent
-AGENT=$(if [ "${CLAUDECODE:-}" = "1" ]; then echo "claude-code"
-  elif [ "${OPENCODE:-}" != "" ] || command -v opencode &>/dev/null; then echo "opencode"
-  elif [ "${CODEX_HOME:-}" != "" ] || command -v codex &>/dev/null; then echo "codex"
-  else echo "unknown"; fi)
+# Detect agent (run detect_agent from Agent Detection section)
+AGENT=$(detect_agent)
 echo "Detected agent: $AGENT"
+
+# Check shared deployment (canonical location)
+if [ -f ~/.local/share/keep/scripts/statusline.py ]; then
+  echo "Shared statusline: OK"
+else
+  echo "Shared statusline: MISSING"
+fi
 
 # Check agent-specific config
 if [ "$AGENT" = "claude-code" ]; then
-  jq '.statusLine' ~/.claude/settings.json 2>/dev/null || echo "Not configured in settings.json"
-  ls -la ~/.claude/scripts/statusline.py ~/.claude/scripts/pricing.json 2>/dev/null || echo "Claude Code files missing"
+  # Check symlinks
+  if [ -L ~/.claude/scripts/statusline.py ]; then
+    echo "Claude Code symlink: OK ($(readlink ~/.claude/scripts/statusline.py))"
+  else
+    echo "Claude Code symlink: MISSING or not a symlink"
+  fi
+  # Check statusLine in settings (use python if jq unavailable)
+  if command -v jq &>/dev/null; then
+    jq '.statusLine' ~/.claude/settings.json 2>/dev/null || echo "Not configured in settings.json"
+  else
+    python3 -c "import json; d=json.load(open('$HOME/.claude/settings.json')); print(json.dumps(d.get('statusLine','Not configured')))" 2>/dev/null || echo "settings.json not found"
+  fi
 fi
 
-# Check shared deployment
-ls -la ~/.local/share/keep/scripts/statusline.py ~/.local/share/keep/scripts/pricing.json 2>/dev/null || echo "Shared files missing"
-
-# Test run
-SCRIPT="${HOME}/.claude/scripts/statusline.py"
-[ -f "$SCRIPT" ] || SCRIPT="${HOME}/.local/share/keep/scripts/statusline.py"
-echo '{"model":{"display_name":"test"},"context_window":{"used_percentage":50},"cwd":"/tmp"}' | python3 -u "$SCRIPT"
+# Test run from canonical location
+SCRIPT="${HOME}/.local/share/keep/scripts/statusline.py"
+if [ -f "$SCRIPT" ]; then
+  echo '{"model":{"display_name":"test"},"context_window":{"used_percentage":50},"cwd":"/tmp"}' | python3 -u "$SCRIPT"
+else
+  echo "Cannot test: script not found at $SCRIPT"
+fi
 ```
 
 Report the results to the user.
@@ -238,8 +257,8 @@ Report the results to the user.
 Remove the native statusline configuration.
 
 1. If Claude Code: remove `statusLine` key from `~/.claude/settings.json`
-2. Optionally remove agent-specific files: `~/.claude/scripts/statusline.py` and `pricing.json`
-3. Optionally remove shared files: `~/.local/share/keep/scripts/statusline.py` and `pricing.json`
+2. Remove symlinks: `~/.claude/scripts/statusline.py` and `~/.claude/scripts/pricing.json`
+3. Optionally remove canonical files: `~/.local/share/keep/scripts/statusline.py` and `pricing.json`
 4. Tell user to restart their agent
 
 ## Triggers
