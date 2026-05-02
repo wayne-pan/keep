@@ -29,6 +29,10 @@ CONFIG_FILE="$HOME/.mx_config"
 ACCOUNTS_FILE="$HOME/.mx_accounts"
 KEYCHAIN_SERVICE="${MX_KEYCHAIN_SERVICE:-Claude Code-credentials}"
 CODEX_CONFIG="$HOME/.codex/config.toml"
+SETTINGS_PATH="$HOME/.claude/settings.json"
+
+# Keys managed by mx in settings.json env section
+MODEL_ENV_KEYS="ANTHROPIC_BASE_URL,ANTHROPIC_API_URL,ANTHROPIC_AUTH_TOKEN,ANTHROPIC_API_KEY,ANTHROPIC_MODEL,API_TIMEOUT_MS,CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
 
 # ── Codex model provider table ──
 declare -A CODEX_ENDPOINTS=(
@@ -399,9 +403,23 @@ get_current_account() {
 # Show current status (masked)
 show_status() {
     echo -e "${BLUE}Claude Code config:${NC}"
-    echo "   BASE_URL: ${ANTHROPIC_BASE_URL:-'Default (Anthropic)'}"
-    echo -n "   AUTH_TOKEN: "; mask_token "${ANTHROPIC_AUTH_TOKEN}"
-    echo "   MODEL: ${ANTHROPIC_MODEL:-'Not Set'}"
+    if [[ -f "$SETTINGS_PATH" ]]; then
+        local cc_model cc_base_url cc_auth_token
+        read -r cc_base_url cc_auth_token cc_model < <(python3 - "$SETTINGS_PATH" << 'PYEOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    env = json.load(f).get("env", {})
+print(env.get("ANTHROPIC_BASE_URL", ""))
+print(env.get("ANTHROPIC_AUTH_TOKEN", ""))
+print(env.get("ANTHROPIC_MODEL", ""))
+PYEOF
+        )
+        echo "   BASE_URL: ${cc_base_url:-Default (Anthropic)}"
+        echo -n "   AUTH_TOKEN: "; mask_token "${cc_auth_token}"
+        echo "   MODEL: ${cc_model:-Not Set}"
+    else
+        echo "   CONFIG: $SETTINGS_PATH not found"
+    fi
     echo ""
     echo -e "${BLUE}Codex CLI config:${NC}"
     if [[ -f "$CODEX_CONFIG" ]]; then
@@ -433,168 +451,204 @@ show_status() {
     echo "   LITELLM_TOKEN: $(mask_presence LITELLM_TOKEN)"
 }
 
-# Clean environment variables
+# Clean environment variables + settings.json managed keys
 clean_env() {
+    # Unset from current shell
     unset ANTHROPIC_BASE_URL ANTHROPIC_API_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY
     unset ANTHROPIC_MODEL API_TIMEOUT_MS CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
+
+    # Remove managed keys from settings.json
+    if [[ -f "$SETTINGS_PATH" ]]; then
+        python3 - "$SETTINGS_PATH" "$MODEL_ENV_KEYS" << 'PYEOF'
+import json, sys
+path, managed = sys.argv[1], sys.argv[2].split(",")
+with open(path) as f:
+    data = json.load(f)
+env = data.get("env", {})
+changed = False
+for k in managed:
+    k = k.strip()
+    if k in env:
+        del env[k]
+        changed = True
+if changed:
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print(f"  Cleaned managed keys from {path}")
+PYEOF
+    fi
 }
 
 # ============================================
-# Claude Code: emit export statements
+# Claude Code: write model settings into settings.json
 # ============================================
-emit_env_exports() {
+write_claude_settings() {
     local target="$1"
     load_config || return 1
 
-    local prelude="unset ANTHROPIC_BASE_URL ANTHROPIC_API_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_MODEL API_TIMEOUT_MS CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
+    # Provider params — bash resolves to concrete values, passed via argv to avoid injection
+    local base_url="" api_url="" auth_token="" api_key="" model="" timeout="" display_name=""
 
     case "$target" in
         "deepseek"|"ds")
             if ! is_effectively_set "$DEEPSEEK_API_KEY"; then
-                echo -e "${RED}Please configure DEEPSEEK_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure DEEPSEEK_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://api.deepseek.com/anthropic'"
-            echo "export ANTHROPIC_API_URL='https://api.deepseek.com/anthropic'"
-            echo "if [ -z \"\${DEEPSEEK_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${DEEPSEEK_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${DEEPSEEK_MODEL:-deepseek-chat}'"
+            base_url="https://api.deepseek.com/anthropic"
+            api_url="https://api.deepseek.com/anthropic"
+            auth_token="$DEEPSEEK_API_KEY"
+            model="${DEEPSEEK_MODEL:-deepseek-chat}"
+            timeout="600000"
+            display_name="Deepseek"
             ;;
         "kimi"|"kimi2")
             if ! is_effectively_set "$KIMI_API_KEY"; then
-                echo -e "${RED}Please configure KIMI_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure KIMI_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://api.kimi.com/coding/'"
-            echo "export ANTHROPIC_API_URL='https://api.kimi.com/coding/'"
-            echo "if [ -z \"\${KIMI_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${KIMI_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${KIMI_MODEL:-kimi-for-coding}'"
+            base_url="https://api.kimi.com/coding/"
+            api_url="https://api.kimi.com/coding/"
+            auth_token="$KIMI_API_KEY"
+            model="${KIMI_MODEL:-kimi-for-coding}"
+            timeout="600000"
+            display_name="Kimi"
             ;;
         "kimi-cn")
             if ! is_effectively_set "$KIMI_API_KEY"; then
-                echo -e "${RED}Please configure KIMI_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure KIMI_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://api.moonshot.cn/anthropic'"
-            echo "export ANTHROPIC_API_URL='https://api.moonshot.cn/anthropic'"
-            echo "if [ -z \"\${KIMI_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${KIMI_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${KIMI_CN_MODEL:-kimi-k2-thinking}'"
+            base_url="https://api.moonshot.cn/anthropic"
+            api_url="https://api.moonshot.cn/anthropic"
+            auth_token="$KIMI_API_KEY"
+            model="${KIMI_CN_MODEL:-kimi-k2-thinking}"
+            timeout="600000"
+            display_name="Kimi-CN"
             ;;
         "qwen")
             if ! is_effectively_set "$QWEN_API_KEY"; then
-                echo -e "${RED}Please configure QWEN_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure QWEN_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy'"
-            echo "export ANTHROPIC_API_URL='https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy'"
-            echo "if [ -z \"\${QWEN_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${QWEN_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${QWEN_MODEL:-qwen3-max}'"
+            base_url="https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy"
+            api_url="https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy"
+            auth_token="$QWEN_API_KEY"
+            model="${QWEN_MODEL:-qwen3-max}"
+            timeout="600000"
+            display_name="Qwen"
             ;;
         "glm")
             if ! is_effectively_set "$GLM_API_KEY"; then
-                echo -e "${RED}Please configure GLM_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure GLM_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://open.bigmodel.cn/api/anthropic'"
-            echo "export ANTHROPIC_API_URL='https://open.bigmodel.cn/api/anthropic'"
-            echo "if [ -z \"\${GLM_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${GLM_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${GLM_MODEL:-glm-5.1}'"
+            base_url="https://open.bigmodel.cn/api/anthropic"
+            api_url="https://open.bigmodel.cn/api/anthropic"
+            auth_token="$GLM_API_KEY"
+            model="${GLM_MODEL:-glm-5.1}"
+            timeout="600000"
+            display_name="GLM"
             ;;
         "longcat"|"lc")
-            [[ ! -f "$HOME/.mx_config" ]] || . "$HOME/.mx_config" >/dev/null 2>&1
             if ! is_effectively_set "$LONGCAT_API_KEY"; then
-                echo -e "${RED}Please configure LONGCAT_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure LONGCAT_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://api.longcat.chat/anthropic'"
-            echo "export ANTHROPIC_API_URL='https://api.longcat.chat/anthropic'"
-            echo "if [ -z \"\${LONGCAT_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${LONGCAT_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${LONGCAT_MODEL:-LongCat-Flash-Thinking}'"
+            base_url="https://api.longcat.chat/anthropic"
+            api_url="https://api.longcat.chat/anthropic"
+            auth_token="$LONGCAT_API_KEY"
+            model="${LONGCAT_MODEL:-LongCat-Flash-Thinking}"
+            timeout="600000"
+            display_name="LongCat"
             ;;
         "minimax"|"mm")
             if ! is_effectively_set "$MINIMAX_API_KEY"; then
-                echo -e "${RED}Please configure MINIMAX_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure MINIMAX_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://api.minimax.io/anthropic'"
-            echo "export ANTHROPIC_API_URL='https://api.minimax.io/anthropic'"
-            echo "if [ -z \"\${MINIMAX_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${MINIMAX_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${MINIMAX_MODEL:-MiniMax-M2}'"
+            base_url="https://api.minimax.io/anthropic"
+            api_url="https://api.minimax.io/anthropic"
+            auth_token="$MINIMAX_API_KEY"
+            model="${MINIMAX_MODEL:-MiniMax-M2}"
+            timeout="600000"
+            display_name="MiniMax"
             ;;
         "seed"|"doubao")
             if ! is_effectively_set "$ARK_API_KEY"; then
-                echo -e "${RED}Please configure ARK_API_KEY${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure ARK_API_KEY${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='3000000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='https://ark.cn-beijing.volces.com/api/coding'"
-            echo "export ANTHROPIC_API_URL='https://ark.cn-beijing.volces.com/api/coding'"
-            echo "if [ -z \"\${ARK_API_KEY}\" ] && [ -f \"\$HOME/.mx_config\" ]; then . \"\$HOME/.mx_config\" >/dev/null 2>&1; fi"
-            echo "export ANTHROPIC_AUTH_TOKEN=\"\${ARK_API_KEY}\""
-            echo "export ANTHROPIC_MODEL='${SEED_MODEL:-doubao-seed-code-preview-latest}'"
+            base_url="https://ark.cn-beijing.volces.com/api/coding"
+            api_url="https://ark.cn-beijing.volces.com/api/coding"
+            auth_token="$ARK_API_KEY"
+            model="${SEED_MODEL:-doubao-seed-code-preview-latest}"
+            timeout="3000000"
+            display_name="Seed"
             ;;
         "claude"|"sonnet"|"s")
-            echo "$prelude"
-            echo "unset ANTHROPIC_BASE_URL ANTHROPIC_API_URL ANTHROPIC_API_KEY"
-            echo "export ANTHROPIC_MODEL='${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}'"
+            model="${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
+            display_name="Claude Sonnet"
             ;;
         "opus"|"o")
-            echo "$prelude"
-            echo "unset ANTHROPIC_BASE_URL ANTHROPIC_API_URL ANTHROPIC_API_KEY"
-            echo "export ANTHROPIC_MODEL='${OPUS_MODEL:-claude-opus-4-5-20251101}'"
+            model="${OPUS_MODEL:-claude-opus-4-5-20251101}"
+            display_name="Claude Opus"
             ;;
         "haiku"|"h")
-            echo "$prelude"
-            echo "unset ANTHROPIC_BASE_URL ANTHROPIC_API_URL ANTHROPIC_API_KEY"
-            echo "export ANTHROPIC_MODEL='${HAIKU_MODEL:-claude-haiku-4-5}'"
+            model="${HAIKU_MODEL:-claude-haiku-4-5}"
+            display_name="Claude Haiku"
             ;;
         "litellm")
             if ! is_effectively_set "$LITELLM_TOKEN"; then
-                echo -e "${RED}Please configure LITELLM_TOKEN (mx set token <key>)${NC}" >&2
-                return 1
+                echo -e "${RED}Please configure LITELLM_TOKEN (mx set token <key>)${NC}" >&2; return 1
             fi
-            echo "$prelude"
-            echo "export API_TIMEOUT_MS='600000'"
-            echo "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'"
-            echo "export ANTHROPIC_BASE_URL='${LITELLM_BASE_URL}'"
-            echo "export ANTHROPIC_API_URL='${LITELLM_BASE_URL}'"
-            echo "export ANTHROPIC_API_KEY='${LITELLM_TOKEN}'"
-            echo "export ANTHROPIC_MODEL='${LITELLM_MODEL:-claude-sonnet}'"
+            base_url="$LITELLM_BASE_URL"
+            api_url="$LITELLM_BASE_URL"
+            api_key="$LITELLM_TOKEN"
+            model="${LITELLM_MODEL:-claude-sonnet}"
+            timeout="600000"
+            display_name="LiteLLM"
             ;;
         *)
-            echo "# Usage: mx claude [deepseek|kimi|kimi-cn|qwen|glm|longcat|minimax|seed|claude|opus|haiku|litellm]" >&2
+            echo -e "${RED}Usage: mx [deepseek|kimi|kimi-cn|qwen|glm|longcat|minimax|seed|claude|opus|haiku|litellm]${NC}" >&2
             return 1
             ;;
     esac
+
+    # Merge into settings.json: remove all managed keys, then add current provider's
+    # Values passed via sys.argv to prevent shell injection in API keys
+    python3 - "$SETTINGS_PATH" "$MODEL_ENV_KEYS" \
+        "$base_url" "$api_url" "$auth_token" "$api_key" "$model" "$timeout" << 'PYEOF'
+import json, sys, os
+path = sys.argv[1]
+managed = [k.strip() for k in sys.argv[2].split(",")]
+base_url, api_url, auth_token, api_key, model, timeout = sys.argv[3:9]
+
+# Build the env dict for this provider
+model_env = {}
+if base_url:      model_env["ANTHROPIC_BASE_URL"] = base_url
+if api_url:       model_env["ANTHROPIC_API_URL"] = api_url
+if auth_token:    model_env["ANTHROPIC_AUTH_TOKEN"] = auth_token
+if api_key:       model_env["ANTHROPIC_API_KEY"] = api_key
+if model:         model_env["ANTHROPIC_MODEL"] = model
+if timeout:       model_env["API_TIMEOUT_MS"] = timeout
+if base_url:      model_env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+
+# Read existing settings (create if missing)
+try:
+    with open(path) as f:
+        data = json.load(f)
+except FileNotFoundError:
+    data = {}
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+env = data.setdefault("env", {})
+for k in managed:
+    env.pop(k, None)
+for k, v in model_env.items():
+    env[k] = v
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.chmod(path, 0o600)
+print(model_env.get("ANTHROPIC_MODEL", "?"))
+PYEOF
+
+    local written_model=$(python3 -c "import json; print(json.load(open('$SETTINGS_PATH'))['env'].get('ANTHROPIC_MODEL','?'))")
+    echo -e "${GREEN}Claude Code → $display_name ($written_model)${NC}" >&2
 }
 
 # ============================================
@@ -994,7 +1048,7 @@ show_help() {
     echo "  mx claude glm                  # Claude Code → GLM (explicit)"
     echo "  mx codex glm                   # Codex CLI → GLM"
     echo "  mx codex deepseek              # Codex CLI → Deepseek"
-    echo "  eval \"\$(mx glm)\"              # Apply Claude Code config"
+    echo "  mx glm                         # Writes to ~/.claude/settings.json directly"
     echo "  mx codex glm                   # Codex writes config.toml directly"
     echo "  mx set glm sk-xxxxx            # Set GLM API key"
     echo "  mx save-account work           # Save current account as 'work'"
@@ -1033,9 +1087,9 @@ main() {
         local account_name="${BASH_REMATCH[2]}"
         switch_account "$account_name" >&2 || return 1
         case "$model_type" in
-            "claude"|"sonnet"|"s") emit_env_exports claude ;;
-            "opus"|"o") emit_env_exports opus ;;
-            "haiku"|"h") emit_env_exports haiku ;;
+            "claude"|"sonnet"|"s") write_claude_settings claude ;;
+            "opus"|"o") write_claude_settings opus ;;
+            "haiku"|"h") write_claude_settings haiku ;;
         esac
         return $?
     fi
@@ -1047,9 +1101,9 @@ main() {
             shift
             local model="${1:-}"
             if [[ -z "$model" ]]; then
-                emit_env_exports claude
+                write_claude_settings claude
             elif is_claude_model "$model"; then
-                emit_env_exports "$model"
+                write_claude_settings "$model"
             else
                 echo -e "${RED}Unknown Claude model: $model${NC}" >&2
                 return 1
@@ -1094,7 +1148,7 @@ main() {
         # ── Default: model name without tool prefix → Claude Code ──
         *)
             if is_claude_model "$cmd"; then
-                emit_env_exports "$cmd"
+                write_claude_settings "$cmd"
             else
                 echo -e "${RED}Unknown command: $cmd${NC}" >&2
                 show_help >&2

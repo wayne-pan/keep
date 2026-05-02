@@ -300,19 +300,14 @@ configure_mx_env() {
 export PATH="$HOME/.local/bin:$PATH"
 ENVEOF
 
-  [ "$MX_ONLY" = false ] && echo 'export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1' >> "$ENV_FILE"
+  [ "$MX_ONLY" = false ] && echo '' >> "$ENV_FILE"
 
   cat >> "$ENV_FILE" << 'ENVEOF'
 
 [[ -f "$HOME/.mx_config" ]] && { . "$HOME/.mx_config" >/dev/null 2>&1; while IFS='=' read -r _var _rest; do export "$_var"; done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*(_API_KEY|_MODEL)=' "$HOME/.mx_config"); }
 
 mx() {
-  local script="$HOME/.local/bin/mx.sh"
-  case "$1" in
-    ""|help|-h|--help|status|st|config|cfg|set|save-account|switch-account|list-accounts|delete-account|current-account|codex|opencode)
-      "$script" "$@" ;;
-    *) eval "$("$script" "$@")" ;;
-  esac
+  "$HOME/.local/bin/mx.sh" "$@"
 }
 ENVEOF
 
