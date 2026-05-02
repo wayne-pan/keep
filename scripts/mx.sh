@@ -805,15 +805,18 @@ emit_opencode_config() {
     local mind_server="$HOME/.mind/mem/server.py"
     local codedb_bin="$HOME/.local/bin/codedb"
 
+    # Resolve concrete API key value from ~/.mx_config
+    local api_key_value="${!key_var}"
+
     # Build provider + MCP config via python3 for proper JSON
-    python3 - "$config_path" "$target" "$display_name" "$endpoint" "$key_var" "$model_id" "$mind_python" "$mind_server" "$codedb_bin" << 'PYEOF'
+    python3 - "$config_path" "$target" "$display_name" "$endpoint" "$api_key_value" "$model_id" "$mind_python" "$mind_server" "$codedb_bin" << 'PYEOF'
 import json, sys, os
 
 config_path = sys.argv[1]
 provider_id = sys.argv[2]
 display_name = sys.argv[3]
 base_url = sys.argv[4]
-key_var = sys.argv[5]
+api_key_value = sys.argv[5]
 model_id = sys.argv[6]
 mind_python = sys.argv[7]
 mind_server = sys.argv[8]
@@ -837,7 +840,7 @@ providers[provider_id] = {
     "name": display_name,
     "options": {
         "baseURL": base_url,
-        "apiKey": f"{{env:{key_var}}}"
+        "apiKey": api_key_value
     },
     "models": {
         model_id: {"name": f"{display_name} {model_id}"}
