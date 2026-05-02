@@ -761,17 +761,27 @@ deploy_opencode_harness() {
     fi
   done
 
-  # 2. opencode.json — generate with MCP servers (no model provider selected yet)
+  # 2. Deploy rules to ~/.config/opencode/rules/ (same pattern as skills)
+  mkdir -p "$OPENCODE_DIR/rules"
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    deploy_file "$PROJECT_DIR/CLAUDE.md" "$OPENCODE_DIR/CLAUDE.md"
+  fi
+  for f in "$PROJECT_DIR"/rules/*.md; do
+    [ -f "$f" ] && deploy_file "$f" "$OPENCODE_DIR/rules/$(basename "$f")"
+  done
+  ok "OpenCode rules deployed"
+
+  # 3. opencode.json — generate with MCP servers (no model provider selected yet)
   local MIND="$HOME/.mind"
   local MEM_PYTHON="$MIND/venv/bin/python3"
   [ ! -x "$MEM_PYTHON" ] && MEM_PYTHON="python3"
 
-  # Build explicit instruction paths from project source (not agent-specific dirs)
+  # Build instruction paths from OpenCode's own config dir (no coupling to other agents)
   local INSTRUCTIONS=""
-  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
-    INSTRUCTIONS="\"$PROJECT_DIR/CLAUDE.md\""
+  if [ -f "$OPENCODE_DIR/CLAUDE.md" ]; then
+    INSTRUCTIONS="\"$OPENCODE_DIR/CLAUDE.md\""
   fi
-  for f in "$PROJECT_DIR"/rules/*.md; do
+  for f in "$OPENCODE_DIR"/rules/*.md; do
     [ -f "$f" ] && INSTRUCTIONS="${INSTRUCTIONS:+$INSTRUCTIONS, }\"$f\""
   done
   for s in "$OPENCODE_DIR"/skills/*/SKILL.md; do
