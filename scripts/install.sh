@@ -30,6 +30,7 @@ CLAUDE_DIR="$HOME/.claude"
 # ── Mode ──
 MX_ONLY=false
 ADAPTER=""
+DEPLOY_MODE="symlink"   # "symlink" (default) or "copy" (with --copy)
 
 # ── Colors ──
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -38,6 +39,53 @@ ok()    { printf "${GREEN}[OK]${NC}    %s\n" "$1"; }
 warn()  { printf "${YELLOW}[WARN]${NC}  %s\n" "$1"; }
 die()   { printf "${RED}[FATAL]${NC} %s\n" "$1" >&2; exit 1; }
 phase() { printf "\n${CYAN}━━━ %s ━━━${NC}\n" "$1"; }
+
+# ── Deploy helpers ──
+# deploy_file <src> <dest> [--chmod <mode>]
+#   symlink mode: ln -sf src dest
+#   copy mode: cp src dest [+ chmod]
+deploy_file() {
+  local src="${1%/}" dest="$2" chmod_mode=""
+  if [ "${3:-}" = "--chmod" ]; then chmod_mode="${4:-}"; fi
+  if [ "$DEPLOY_MODE" = "symlink" ]; then
+    ln -sf "$src" "$dest"
+  else
+    cp "$src" "$dest"
+    [ -n "$chmod_mode" ] && chmod "$chmod_mode" "$dest"
+  fi
+}
+
+# deploy_dir <src_dir> <dest_dir>
+#   symlink mode: rm -rf dest_dir, ln -sf src_dir dest_dir (as child of dest_dir's parent)
+#   copy mode: cp -r src_dir/* dest_dir/
+#   Use ONLY when dest is 100% project-owned (no generated files)
+deploy_dir() {
+  local src_dir="${1%/}" dest_dir="$2"
+  if [ "$DEPLOY_MODE" = "symlink" ]; then
+    rm -rf "$dest_dir"
+    ln -sf "$src_dir" "$dest_dir"
+  else
+    mkdir -p "$dest_dir"
+    cp -r "$src_dir"/* "$dest_dir/"
+  fi
+}
+
+# deploy_mixed_dir <src_dir> <dest_dir>
+#   symlink mode: symlink individual files from src into dest (keeps generated files intact)
+#   copy mode: cp src/* dest/
+#   Use for directories with both project + generated files (e.g. rules/)
+deploy_mixed_dir() {
+  local src_dir="${1%/}" dest_dir="$2"
+  mkdir -p "$dest_dir"
+  if [ "$DEPLOY_MODE" = "symlink" ]; then
+    for f in "$src_dir"/*; do
+      [ -f "$f" ] || continue
+      ln -sf "$f" "$dest_dir/$(basename "$f")"
+    done
+  else
+    cp "$src_dir"/* "$dest_dir/"
+  fi
+}
 
 # ── Platform detection ──
 detect_platform() {
@@ -71,6 +119,7 @@ Usage: install.sh [OPTIONS]
 
 Options:
   --mx             Install mx only (model switcher)
+  --copy           Copy files instead of symlinks (default: symlink to project source)
   --adapter NAME   Configure mind+codedb MCP for a specific AI tool
   --list-adapters  List available adapters
   --help           Show this help message
@@ -88,6 +137,7 @@ USAGE_EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mx)             MX_ONLY=true; shift ;;
+    --copy)           DEPLOY_MODE="copy"; shift ;;
     --adapter)        shift; ADAPTER="${1:-}"; shift ;;
     --list-adapters)  list_adapters ;;
     --help)           usage ;;
@@ -507,34 +557,34 @@ phase "Phase 3/4: Stack Configuration"
 mkdir -p "$CLAUDE_DIR"/{rules,skills/sprint,skills/review,hooks}
 
 # ── CLAUDE.md ──
-cp "$PROJECT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+deploy_file "$PROJECT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
 ok "CLAUDE.md"
 
 # ── Rules ──
-for f in "$PROJECT_DIR"/rules/*.md; do
-  [ -f "$f" ] && cp "$f" "$CLAUDE_DIR/rules/$(basename "$f")"
-done
+deploy_mixed_dir "$PROJECT_DIR/rules" "$CLAUDE_DIR/rules"
 ok "Rules ($(ls "$PROJECT_DIR"/rules/*.md 2>/dev/null | wc -l) files)"
 
-# Remove stale rules from previous versions
+# Remove stale rules + broken symlinks from previous versions
 for stale in context-compaction.md safety-tiers.md session-resume.md; do
+  [ -L "$CLAUDE_DIR/rules/$stale" ] && rm "$CLAUDE_DIR/rules/$stale"
   [ -f "$CLAUDE_DIR/rules/$stale" ] && rm "$CLAUDE_DIR/rules/$stale"
 done
 
 # ── Skills ──
 for skill_dir in "$PROJECT_DIR"/skills/*/; do
+  skill_dir="${skill_dir%/}"
   skill_name="$(basename "$skill_dir")"
   if [ -f "$skill_dir/SKILL.md" ]; then
     mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-    cp "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md"
-    # Copy references/ for progressive disclosure
+    deploy_file "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md"
+    # references/ for progressive disclosure (entire dir is project-owned)
     if [ -d "$skill_dir/references" ]; then
-      cp -r "$skill_dir/references" "$CLAUDE_DIR/skills/$skill_name/references"
+      deploy_dir "$skill_dir/references" "$CLAUDE_DIR/skills/$skill_name/references"
     fi
-    # Copy knowledge subdirectories (domain-knowledge, interaction-patterns)
+    # Knowledge subdirectories (domain-knowledge, interaction-patterns)
     for subdir in domain-knowledge interaction-patterns; do
       if [ -d "$skill_dir/$subdir" ]; then
-        cp -r "$skill_dir/$subdir" "$CLAUDE_DIR/skills/$skill_name/$subdir"
+        deploy_dir "$skill_dir/$subdir" "$CLAUDE_DIR/skills/$skill_name/$subdir"
       fi
     done
     ok "Skill: $skill_name"
@@ -544,15 +594,14 @@ done
 # ── Hooks ──
 for hook in safety-guard.sh nto-rewrite.sh session-stop-guard.sh session-checkpoint.sh auto-format.sh protect-files.sh audit-log.sh todo-check.sh no-todo-commit.sh post-bash-scan-secrets.sh pre-compact-instructions.sh sync-memory-rules.sh mem-record.sh mem-session.sh env-bootstrap.sh validate-edit.sh update-code-map.sh codedb-reindex.sh pr-gate.sh review-queue-inject.sh constitutional-check.sh tool-cache.sh; do
   if [ -f "$PROJECT_DIR/hooks/$hook" ]; then
-    cp "$PROJECT_DIR/hooks/$hook" "$CLAUDE_DIR/hooks/$hook"
-    chmod +x "$CLAUDE_DIR/hooks/$hook"
+    deploy_file "$PROJECT_DIR/hooks/$hook" "$CLAUDE_DIR/hooks/$hook" --chmod +x
     ok "Hook: $hook"
   else
     warn "Hook source not found: $hook"
   fi
 done
 
-if [ ! -f "$CLAUDE_DIR/hooks/nto-rewrite.sh" ]; then
+if [ ! -f "$CLAUDE_DIR/hooks/nto-rewrite.sh" ] && [ ! -L "$CLAUDE_DIR/hooks/nto-rewrite.sh" ]; then
   warn "nto-rewrite.sh not found in hooks/"
 fi
 
@@ -585,9 +634,11 @@ deploy_codex_harness() {
   done
   ok "AGENTS.md (rules + skills)"
 
-  # 2. hooks/ — copy keep hook scripts
-  cp "$PROJECT_DIR"/hooks/*.sh "$CODEX_DIR/hooks/" 2>/dev/null
-  chmod +x "$CODEX_DIR/hooks/"*.sh 2>/dev/null
+  # 2. hooks/ — deploy keep hook scripts
+  for hook in "$PROJECT_DIR"/hooks/*.sh; do
+    [ -f "$hook" ] || continue
+    deploy_file "$hook" "$CODEX_DIR/hooks/$(basename "$hook")" --chmod +x
+  done
   ok "Codex hooks ($(ls "$CODEX_DIR/hooks/"*.sh 2>/dev/null | wc -l) scripts)"
 
   # 3. config.toml — generate with MCP servers + model
@@ -799,13 +850,9 @@ phase "Phase 4/4: Settings + Smoke Test"
 SHARED_SCRIPTS="$HOME/.local/share/keep/scripts"
 if [ -f "$PROJECT_DIR/scripts/statusline.py" ] && [ -f "$PROJECT_DIR/scripts/pricing.json" ]; then
   mkdir -p "$SHARED_SCRIPTS"
-  if cp "$PROJECT_DIR/scripts/statusline.py" "$SHARED_SCRIPTS/statusline.py" && \
-     cp "$PROJECT_DIR/scripts/pricing.json" "$SHARED_SCRIPTS/pricing.json"; then
-    chmod +x "$SHARED_SCRIPTS/statusline.py"
-    ok "statusline (shared at $SHARED_SCRIPTS)"
-  else
-    warn "statusline: shared deploy failed"
-  fi
+  deploy_file "$PROJECT_DIR/scripts/statusline.py" "$SHARED_SCRIPTS/statusline.py" --chmod +x
+  deploy_file "$PROJECT_DIR/scripts/pricing.json" "$SHARED_SCRIPTS/pricing.json"
+  ok "statusline (shared at $SHARED_SCRIPTS)"
   # Claude Code: symlink from ~/.claude/scripts/ to shared canonical location
   mkdir -p "$CLAUDE_DIR/scripts"
   ln -sf "$SHARED_SCRIPTS/statusline.py" "$CLAUDE_DIR/scripts/statusline.py"
@@ -817,16 +864,14 @@ fi
 
 # ── Dashboard (show.py) ──
 if [ -f "$PROJECT_DIR/scripts/show.py" ]; then
-  cp "$PROJECT_DIR/scripts/show.py" "$CLAUDE_DIR/scripts/show.py"
-  chmod +x "$CLAUDE_DIR/scripts/show.py"
+  deploy_file "$PROJECT_DIR/scripts/show.py" "$CLAUDE_DIR/scripts/show.py" --chmod +x
   ok "dashboard (show.py)"
 fi
 
 # ── Code Intelligence Scripts ──
 for script in callgraph.py artifacts.py; do
   if [ -f "$PROJECT_DIR/scripts/$script" ]; then
-    cp "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script"
-    chmod +x "$CLAUDE_DIR/scripts/$script"
+    deploy_file "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script" --chmod +x
     ok "script: $script"
   fi
 done
@@ -835,8 +880,7 @@ done
 mkdir -p "$CLAUDE_DIR/scripts"
 for script in kv-store.sh recursion-guard.sh token-chunk.sh hash-snapshot.sh nonce-wrap.sh sprint-checkpoint.sh classify-observation.sh; do
   if [ -f "$PROJECT_DIR/scripts/$script" ]; then
-    cp "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script"
-    chmod +x "$CLAUDE_DIR/scripts/$script"
+    deploy_file "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script" --chmod +x
     ok "script: $script"
   fi
 done
@@ -1031,7 +1075,7 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
   echo ""
   info "=== Smoke Test ==="
   command -v claude &>/dev/null && ok "claude available" || warn "claude not found"
-  [ -f "$CLAUDE_DIR/hooks/nto-rewrite.sh" ] && ok "nto hook" || warn "nto hook not found"
+  [ -e "$CLAUDE_DIR/hooks/nto-rewrite.sh" ] && ok "nto hook" || warn "nto hook not found"
   [ -f "$LOCAL_BIN/mx.sh" ] && ok "mx available" || warn "mx not found"
   [ -f "$LOCAL_BIN/codedb" ] && ok "codedb available" || warn "codedb not found"
   command -v browser-use &>/dev/null && ok "browser-use available" || warn "browser-use not found"
@@ -1046,6 +1090,16 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
   [ -f "$HOME/.codex/hooks.json" ] && ok "codex hooks.json" || warn "codex hooks.json not found"
   command -v opencode &>/dev/null && ok "opencode CLI" || warn "opencode CLI not found"
   [ -f "$HOME/.config/opencode/opencode.json" ] && ok "opencode config" || warn "opencode config not found"
+
+  # Symlink verification
+  if [ "$DEPLOY_MODE" = "symlink" ]; then
+    echo ""
+    info "=== Symlink Verification ==="
+    [ -L "$CLAUDE_DIR/CLAUDE.md" ] && ok "CLAUDE.md → symlink" || warn "CLAUDE.md not symlink"
+    [ -L "$CLAUDE_DIR/rules/core.md" ] && ok "rules → symlinks" || warn "rules not symlinks"
+    [ -L "$CLAUDE_DIR/hooks/safety-guard.sh" ] && ok "hooks → symlinks" || warn "hooks not symlinks"
+    [ ! -L "$CLAUDE_DIR/settings.json" ] && ok "settings.json is real file" || warn "settings.json is symlink!"
+  fi
 
   echo ""
   info "Deployed configuration:"
