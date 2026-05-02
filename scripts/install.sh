@@ -611,19 +611,43 @@ deploy_codex_harness() {
   local CODEX_DIR="$HOME/.codex"
   mkdir -p "$CODEX_DIR/hooks"
 
-  # 1. AGENTS.md — concatenate rules + skills into instructions
-  cat "$PROJECT_DIR/CLAUDE.md" > "$CODEX_DIR/AGENTS.md"
-  echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
+  # 1. Deploy rules to ~/.codex/rules/ (same pattern as OpenCode)
+  mkdir -p "$CODEX_DIR/rules"
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    deploy_file "$PROJECT_DIR/CLAUDE.md" "$CODEX_DIR/CLAUDE.md"
+  fi
   for f in "$PROJECT_DIR"/rules/*.md; do
+    [ -f "$f" ] && deploy_file "$f" "$CODEX_DIR/rules/$(basename "$f")"
+  done
+
+  # Deploy skills to ~/.codex/skills/
+  mkdir -p "$CODEX_DIR/skills"
+  for skill_dir in "$PROJECT_DIR"/skills/*/; do
+    skill_dir="${skill_dir%/}"
+    skill_name="$(basename "$skill_dir")"
+    if [ -f "$skill_dir/SKILL.md" ]; then
+      mkdir -p "$CODEX_DIR/skills/$skill_name"
+      deploy_file "$skill_dir/SKILL.md" "$CODEX_DIR/skills/$skill_name/SKILL.md"
+      if [ -d "$skill_dir/references" ]; then
+        deploy_dir "$skill_dir/references" "$CODEX_DIR/skills/$skill_name/references"
+      fi
+    fi
+  done
+  ok "Codex rules + skills deployed"
+
+  # 2. AGENTS.md — concatenate from Codex's own deployed files
+  cat "$CODEX_DIR/CLAUDE.md" > "$CODEX_DIR/AGENTS.md"
+  echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
+  for f in "$CODEX_DIR"/rules/*.md; do
     [ -f "$f" ] || continue
     cat "$f" >> "$CODEX_DIR/AGENTS.md"
     echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
   done
   # Append skills (Codex reads only AGENTS.md, so embed skill content)
-  for skill_dir in "$PROJECT_DIR"/skills/*/; do
+  for skill_dir in "$CODEX_DIR"/skills/*/; do
     skill_file="$skill_dir/SKILL.md"
     [ -f "$skill_file" ] || continue
-    echo -e "\n## Skill: $(basename "$skill_dir")\n" >> "$CODEX_DIR/AGENTS.md"
+    echo -e "\n## Skill: $(basename "${skill_dir%/}")\n" >> "$CODEX_DIR/AGENTS.md"
     cat "$skill_file" >> "$CODEX_DIR/AGENTS.md"
     echo -e "\n---\n" >> "$CODEX_DIR/AGENTS.md"
   done
