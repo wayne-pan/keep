@@ -766,13 +766,16 @@ deploy_opencode_harness() {
   local MEM_PYTHON="$MIND/venv/bin/python3"
   [ ! -x "$MEM_PYTHON" ] && MEM_PYTHON="python3"
 
-  # Build explicit instruction paths (no globs — OpenCode may not expand them)
-  local INSTRUCTIONS="\"$HOME/.claude/CLAUDE.md\""
-  for f in "$CLAUDE_DIR"/rules/*.md; do
-    [ -f "$f" ] && INSTRUCTIONS="$INSTRUCTIONS, \"$f\""
+  # Build explicit instruction paths from project source (not agent-specific dirs)
+  local INSTRUCTIONS=""
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    INSTRUCTIONS="\"$PROJECT_DIR/CLAUDE.md\""
+  fi
+  for f in "$PROJECT_DIR"/rules/*.md; do
+    [ -f "$f" ] && INSTRUCTIONS="${INSTRUCTIONS:+$INSTRUCTIONS, }\"$f\""
   done
   for s in "$OPENCODE_DIR"/skills/*/SKILL.md; do
-    [ -f "$s" ] && INSTRUCTIONS="$INSTRUCTIONS, \"$s\""
+    [ -f "$s" ] && INSTRUCTIONS="${INSTRUCTIONS:+$INSTRUCTIONS, }\"$s\""
   done
 
   python3 - "$OPENCODE_DIR/opencode.json" "$MEM_PYTHON" "$MIND/mem/server.py" "$LOCAL_BIN/codedb" "$INSTRUCTIONS" << 'PYEOF'
