@@ -752,18 +752,42 @@ deploy_opencode_harness() {
   local OPENCODE_DIR="$HOME/.config/opencode"
   mkdir -p "$OPENCODE_DIR"
 
-  # 1. opencode.json — generate with MCP servers (no model provider selected yet)
+  # 1. Deploy skills to ~/.config/opencode/skills/
+  for skill_dir in "$PROJECT_DIR"/skills/*/; do
+    skill_dir="${skill_dir%/}"
+    skill_name="$(basename "$skill_dir")"
+    if [ -f "$skill_dir/SKILL.md" ]; then
+      mkdir -p "$OPENCODE_DIR/skills/$skill_name"
+      deploy_file "$skill_dir/SKILL.md" "$OPENCODE_DIR/skills/$skill_name/SKILL.md"
+      if [ -d "$skill_dir/references" ]; then
+        deploy_dir "$skill_dir/references" "$OPENCODE_DIR/skills/$skill_name/references"
+      fi
+      ok "OpenCode skill: $skill_name"
+    fi
+  done
+
+  # 2. opencode.json — generate with MCP servers (no model provider selected yet)
   local MIND="$HOME/.mind"
   local MEM_PYTHON="$MIND/venv/bin/python3"
   [ ! -x "$MEM_PYTHON" ] && MEM_PYTHON="python3"
 
-  python3 - "$OPENCODE_DIR/opencode.json" "$MEM_PYTHON" "$MIND/mem/server.py" "$LOCAL_BIN/codedb" << 'PYEOF'
+  # Build explicit instruction paths (no globs — OpenCode may not expand them)
+  local INSTRUCTIONS="\"$HOME/.claude/CLAUDE.md\""
+  for f in "$CLAUDE_DIR"/rules/*.md; do
+    [ -f "$f" ] && INSTRUCTIONS="$INSTRUCTIONS, \"$f\""
+  done
+  for s in "$OPENCODE_DIR"/skills/*/SKILL.md; do
+    [ -f "$s" ] && INSTRUCTIONS="$INSTRUCTIONS, \"$s\""
+  done
+
+  python3 - "$OPENCODE_DIR/opencode.json" "$MEM_PYTHON" "$MIND/mem/server.py" "$LOCAL_BIN/codedb" "$INSTRUCTIONS" << 'PYEOF'
 import json, sys, os
 
 config_path = sys.argv[1]
 mind_python = sys.argv[2]
 mind_server = sys.argv[3]
 codedb_bin = sys.argv[4]
+instructions_json = "[" + sys.argv[5] + "]"
 
 # Read existing config to preserve model/provider
 try:
@@ -789,11 +813,8 @@ if os.path.isfile(codedb_bin):
         "enabled": True
     }
 
-# Global instructions — point at ~/.claude/rules
-data["instructions"] = [
-    "$HOME/.claude/CLAUDE.md",
-    "$HOME/.claude/rules/*.md"
-]
+# Global instructions — explicit file paths (expanded from globs in bash)
+data["instructions"] = json.loads(instructions_json)
 
 with open(config_path, "w") as f:
     json.dump(data, f, indent=2)
