@@ -565,23 +565,12 @@ for stale in context-compaction.md safety-tiers.md session-resume.md; do
   [ -f "$CLAUDE_DIR/rules/$stale" ] && rm "$CLAUDE_DIR/rules/$stale"
 done
 
-# ── Skills ──
+# ── Skills — symlink entire skill directories ──
 for skill_dir in "$PROJECT_DIR"/skills/*/; do
   skill_dir="${skill_dir%/}"
   skill_name="$(basename "$skill_dir")"
   if [ -f "$skill_dir/SKILL.md" ]; then
-    mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-    deploy_file "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md"
-    # references/ for progressive disclosure (entire dir is project-owned)
-    if [ -d "$skill_dir/references" ]; then
-      deploy_dir "$skill_dir/references" "$CLAUDE_DIR/skills/$skill_name/references"
-    fi
-    # Knowledge subdirectories (domain-knowledge, interaction-patterns)
-    for subdir in domain-knowledge interaction-patterns; do
-      if [ -d "$skill_dir/$subdir" ]; then
-        deploy_dir "$skill_dir/$subdir" "$CLAUDE_DIR/skills/$skill_name/$subdir"
-      fi
-    done
+    deploy_dir "$skill_dir" "$CLAUDE_DIR/skills/$skill_name"
     ok "Skill: $skill_name"
   fi
 done
@@ -626,11 +615,7 @@ deploy_codex_harness() {
     skill_dir="${skill_dir%/}"
     skill_name="$(basename "$skill_dir")"
     if [ -f "$skill_dir/SKILL.md" ]; then
-      mkdir -p "$CODEX_DIR/skills/$skill_name"
-      deploy_file "$skill_dir/SKILL.md" "$CODEX_DIR/skills/$skill_name/SKILL.md"
-      if [ -d "$skill_dir/references" ]; then
-        deploy_dir "$skill_dir/references" "$CODEX_DIR/skills/$skill_name/references"
-      fi
+      deploy_dir "$skill_dir" "$CODEX_DIR/skills/$skill_name"
     fi
   done
   ok "Codex rules + skills deployed"
@@ -776,11 +761,7 @@ deploy_opencode_harness() {
     skill_dir="${skill_dir%/}"
     skill_name="$(basename "$skill_dir")"
     if [ -f "$skill_dir/SKILL.md" ]; then
-      mkdir -p "$OPENCODE_DIR/skills/$skill_name"
-      deploy_file "$skill_dir/SKILL.md" "$OPENCODE_DIR/skills/$skill_name/SKILL.md"
-      if [ -d "$skill_dir/references" ]; then
-        deploy_dir "$skill_dir/references" "$OPENCODE_DIR/skills/$skill_name/references"
-      fi
+      deploy_dir "$skill_dir" "$OPENCODE_DIR/skills/$skill_name"
       ok "OpenCode skill: $skill_name"
     fi
   done
