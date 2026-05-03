@@ -431,15 +431,20 @@ fi
 ok "Node.js $(node -v)"
 
 # ── Claude Code ──
-info "Installing Claude Code v${CLAUDE_VERSION}..."
-if ! command -v claude &>/dev/null; then
+install_claude_code_cli() {
+  if command -v claude &>/dev/null; then
+    ok "Claude Code CLI (already installed)"
+    return
+  fi
+  info "Installing Claude Code v${CLAUDE_VERSION}..."
   if [ "$PLATFORM" = "ubuntu" ]; then
     sudo npm install -g "@anthropic-ai/claude-code@${CLAUDE_VERSION}"
   else
     npm install -g "@anthropic-ai/claude-code@${CLAUDE_VERSION}"
   fi
-fi
-ok "Claude Code"
+  ok "Claude Code CLI"
+}
+install_claude_code_cli
 
 # ── mx (Model eXchange) ──
 install_mx
