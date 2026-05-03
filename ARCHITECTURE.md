@@ -88,7 +88,7 @@ keep/
 │   │   └── references/     # Review methodology docs (blast radius, checklists, etc.)
 │   ├── deslop/             # Code de-bloat optimization
 │   ├── harness/            # Harness component management
-│   ├── skill-creator/      # Skill auto-creation
+│   ├── skill-forge/         # Skill auto-creation
 │   ├── onboard/            # First-run personalization wizard
 │   ├── statusline/         # Token/cost/context status bar
 │   ├── analyze/            # RLM chunk+parallel+merge for large files
@@ -472,7 +472,7 @@ Trigger: When modifying hooks/rules/skills/settings.json
 Function: Manage keep's own component configuration and updates
 ```
 
-### skill-creator — Skill Auto-Creation
+### skill-forge — Skill Auto-Creation
 
 ```
 Trigger: /skill, after complex task completion, after iterative error resolution

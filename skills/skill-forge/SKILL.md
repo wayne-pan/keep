@@ -1,5 +1,5 @@
 ---
-name: keep:skill-creator
+name: keep:skill-forge
 version: "1.0"
 triggers: ["/keep:create skill", "/keep:new skill", "/keep:save as skill", "/keep:/skill", "/keep:make a skill", "/keep:turn this into a skill", "/keep:remember this pattern", "/keep:save this workflow"]
 routes_to: ["harness"]

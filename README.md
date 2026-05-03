@@ -95,7 +95,7 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 | `/keep:browser-use` | "/keep:browser-use" | Headless browser automation with domain knowledge |
 | `/keep:ambient` | "/keep:ambient" | Background context awareness and monitoring |
 | `/keep:ubiquitous-language` | "/keep:ubiquitous-language" | Shared vocabulary management |
-| `/keep:skill-creator` | "/keep:skill" | Auto-extract reusable skill templates from experience |
+| `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
 | `/keep:harness` | Component changes | Manage keep's own configuration |
 
 ### Model Manager (mx)
