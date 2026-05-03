@@ -491,7 +491,7 @@ install_codedb() {
 }
 install_codedb
 
-# ── Codex CLI (OpenAI) ──
+# ── Codex CLI (OpenAI) — only install if explicitly requested --adapter codex ──
 install_codex_cli() {
   if command -v codex &>/dev/null; then
     ok "codex CLI (already installed)"
@@ -504,9 +504,8 @@ install_codex_cli() {
     warn "codex CLI: install failed, skipping"
   fi
 }
-install_codex_cli
 
-# ── OpenCode CLI ──
+# ── OpenCode CLI — only install if explicitly requested --adapter opencode ──
 install_opencode_cli() {
   export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
   if command -v opencode &>/dev/null; then
@@ -523,7 +522,6 @@ install_opencode_cli() {
     warn "opencode CLI: install failed, skipping"
   fi
 }
-install_opencode_cli
 
 # ── uv (Python tool runner, needed for browser-use) ──
 if ! command -v uv &>/dev/null; then
@@ -1146,10 +1144,22 @@ fi
 bash "$CLAUDE_DIR/hooks/env-bootstrap.sh" 2>/dev/null || true
 ok "Environment snapshot"
 
-# ── Adapter auto-detection ──
+# ── Adapter auto-detection (deploy harness only if CLI already installed) ──
 phase "Phase 5: Adapter Auto-Detection"
 # Ensure opencode binary is findable (installs to ~/.opencode/bin)
 export PATH="$HOME/.opencode/bin:$PATH"
+
+# Always deploy Claude Code harness (core install)
+# Codex/OpenCode: only deploy if their CLI is already present on this machine
+if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
+  info "Detected: codex — deploying full harness..."
+  deploy_codex_harness && ok "codex adapter" || warn "codex adapter failed"
+fi
+if command -v opencode &>/dev/null; then
+  info "Detected: opencode — deploying harness..."
+  deploy_opencode_harness && ok "opencode adapter" || warn "opencode adapter failed"
+fi
+
 if [ -d "$ADAPTERS_DIR" ]; then
   MIND_SERVER="$HOME/.mind/mem/server.py"
   MEM_PYTHON="$HOME/.mind/venv/bin/python3"
@@ -1158,22 +1168,8 @@ if [ -d "$ADAPTERS_DIR" ]; then
     [ -f "$adapter_file" ] || continue
     adapter_name="$(basename "$adapter_file" .json)"
     [ "$adapter_name" = "claude-code" ] && continue  # Already configured
-    if [ "$adapter_name" = "codex" ]; then
-      # Codex needs full harness, not just MCP config
-      if command -v codex &>/dev/null || [ -d "$HOME/.codex" ]; then
-        info "Detected: codex — deploying full harness..."
-        deploy_codex_harness && ok "codex adapter" || warn "codex adapter failed"
-      fi
-      continue
-    fi
-    if [ "$adapter_name" = "opencode" ]; then
-      # OpenCode needs full harness, not just MCP config
-      if command -v opencode &>/dev/null; then
-        info "Detected: opencode — deploying harness..."
-        deploy_opencode_harness && ok "opencode adapter" || warn "opencode adapter failed"
-      fi
-      continue
-    fi
+    [ "$adapter_name" = "codex" ] && continue        # Handled above
+    [ "$adapter_name" = "opencode" ] && continue      # Handled above
     detect_cmd=$(python3 -c "import json; print(json.load(open('$adapter_file')).get('detect','false'))" 2>/dev/null || echo "false")
     if eval "$detect_cmd" &>/dev/null; then
       info "Detected: $adapter_name — configuring..."
