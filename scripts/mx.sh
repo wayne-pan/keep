@@ -44,6 +44,7 @@ get_codex_endpoint() {
         longcat)  echo "https://api.longcat.chat/v1" ;;
         minimax)  echo "https://api.minimax.io/v1" ;;
         seed)     echo "https://ark.cn-beijing.volces.com/api/v3" ;;
+        litellm)  echo "litellm" ;;  # resolved dynamically below
     esac
 }
 # Model IDs and API keys are read from .mx_config (shared with Claude Code):
@@ -60,6 +61,7 @@ get_opencode_endpoint() {
         longcat)  echo "https://api.longcat.chat/v1" ;;
         minimax)  echo "https://api.minimax.io/v1" ;;
         seed)     echo "https://ark.cn-beijing.volces.com/api/v3" ;;
+        litellm)  echo "litellm" ;;  # resolved dynamically below
     esac
 }
 
@@ -682,6 +684,7 @@ emit_codex_config() {
         longcat)  model_var="LONGCAT_MODEL";   key_var="LONGCAT_API_KEY";   display_name="LongCat" ;;
         minimax)  model_var="MINIMAX_MODEL";   key_var="MINIMAX_API_KEY";   display_name="MiniMax" ;;
         seed)     model_var="SEED_MODEL";       key_var="ARK_API_KEY";       display_name="Seed" ;;
+        litellm)  model_var="LITELLM_MODEL";   key_var="LITELLM_TOKEN";     display_name="LiteLLM" ;;
     esac
 
     if [[ -z "$endpoint" || -z "$model_var" ]]; then
@@ -700,6 +703,15 @@ emit_codex_config() {
     if ! is_effectively_set "${!key_var}"; then
         echo -e "${RED}Please configure $key_var${NC}" >&2
         return 1
+    fi
+
+    # LiteLLM: endpoint is dynamic from config
+    if [[ "$target" == "litellm" ]]; then
+        endpoint="${LITELLM_BASE_URL}"
+        if [[ -z "$endpoint" ]]; then
+            echo -e "${RED}Please configure LITELLM_BASE_URL (mx set url <url>)${NC}" >&2
+            return 1
+        fi
     fi
 
     local codex_dir="$HOME/.codex"
@@ -780,11 +792,12 @@ emit_opencode_config() {
         longcat)  model_var="LONGCAT_MODEL";   key_var="LONGCAT_API_KEY";   display_name="LongCat" ;;
         minimax)  model_var="MINIMAX_MODEL";   key_var="MINIMAX_API_KEY";   display_name="MiniMax" ;;
         seed)     model_var="SEED_MODEL";       key_var="ARK_API_KEY";       display_name="Seed" ;;
+        litellm)  model_var="LITELLM_MODEL";   key_var="LITELLM_TOKEN";     display_name="LiteLLM" ;;
     esac
 
     if [[ -z "$endpoint" || -z "$model_var" ]]; then
         echo -e "${RED}Unknown OpenCode provider: $target${NC}" >&2
-        echo -e "${YELLOW}Supported: deepseek, glm, kimi, qwen, longcat, minimax, seed${NC}" >&2
+        echo -e "${YELLOW}Supported: deepseek, glm, kimi, qwen, longcat, minimax, seed, litellm${NC}" >&2
         return 1
     fi
 
@@ -797,6 +810,15 @@ emit_opencode_config() {
     if ! is_effectively_set "${!key_var}"; then
         echo -e "${RED}Please configure $key_var${NC}" >&2
         return 1
+    fi
+
+    # LiteLLM: endpoint is dynamic from config
+    if [[ "$target" == "litellm" ]]; then
+        endpoint="${LITELLM_BASE_URL}"
+        if [[ -z "$endpoint" ]]; then
+            echo -e "${RED}Please configure LITELLM_BASE_URL (mx set url <url>)${NC}" >&2
+            return 1
+        fi
     fi
 
     local config_dir="$HOME/.config/opencode"
