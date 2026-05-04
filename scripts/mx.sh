@@ -1113,6 +1113,7 @@ main() {
                 write_claude_settings "$model"
             else
                 echo -e "${RED}Unknown Claude model: $model${NC}" >&2
+                echo -e "${YELLOW}Usage: mx claude [deepseek|glm|kimi|qwen|longcat|minimax|seed|sonnet|opus|haiku|litellm]${NC}" >&2
                 return 1
             fi
             ;;
