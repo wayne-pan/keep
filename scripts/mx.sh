@@ -34,30 +34,34 @@ SETTINGS_PATH="$HOME/.claude/settings.json"
 # Keys managed by mx in settings.json env section
 MODEL_ENV_KEYS="ANTHROPIC_BASE_URL,ANTHROPIC_API_URL,ANTHROPIC_AUTH_TOKEN,ANTHROPIC_API_KEY,ANTHROPIC_MODEL,API_TIMEOUT_MS,CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
 
-# ── Codex model provider table ──
-declare -A CODEX_ENDPOINTS=(
-    [deepseek]="https://api.deepseek.com/v1"
-    [glm]="https://open.bigmodel.cn/api/coding/paas/v4"
-    [kimi]="https://api.moonshot.cn/v1"
-    [qwen]="https://dashscope.aliyuncs.com/compatible-mode/v1"
-    [longcat]="https://api.longcat.chat/v1"
-    [minimax]="https://api.minimax.io/v1"
-    [seed]="https://ark.cn-beijing.volces.com/api/v3"
-)
+# ── Codex model provider table (Bash 3 compatible — no declare -A) ──
+get_codex_endpoint() {
+    case "$1" in
+        deepseek) echo "https://api.deepseek.com/v1" ;;
+        glm)      echo "https://open.bigmodel.cn/api/coding/paas/v4" ;;
+        kimi)     echo "https://api.moonshot.cn/v1" ;;
+        qwen)     echo "https://dashscope.aliyuncs.com/compatible-mode/v1" ;;
+        longcat)  echo "https://api.longcat.chat/v1" ;;
+        minimax)  echo "https://api.minimax.io/v1" ;;
+        seed)     echo "https://ark.cn-beijing.volces.com/api/v3" ;;
+    esac
+}
 # Model IDs and API keys are read from .mx_config (shared with Claude Code):
 #   DEEPSEEK_MODEL, GLM_MODEL, KIMI_MODEL, QWEN_MODEL, etc.
 #   DEEPSEEK_API_KEY, GLM_API_KEY, KIMI_API_KEY, etc.
 
-# ── OpenCode model provider table ──
-declare -A OPENCODE_ENDPOINTS=(
-    [deepseek]="https://api.deepseek.com/v1"
-    [glm]="https://open.bigmodel.cn/api/coding/paas/v4"
-    [kimi]="https://api.moonshot.cn/v1"
-    [qwen]="https://dashscope.aliyuncs.com/compatible-mode/v1"
-    [longcat]="https://api.longcat.chat/v1"
-    [minimax]="https://api.minimax.io/v1"
-    [seed]="https://ark.cn-beijing.volces.com/api/v3"
-)
+# ── OpenCode model provider table (Bash 3 compatible) ──
+get_opencode_endpoint() {
+    case "$1" in
+        deepseek) echo "https://api.deepseek.com/v1" ;;
+        glm)      echo "https://open.bigmodel.cn/api/coding/paas/v4" ;;
+        kimi)     echo "https://api.moonshot.cn/v1" ;;
+        qwen)     echo "https://dashscope.aliyuncs.com/compatible-mode/v1" ;;
+        longcat)  echo "https://api.longcat.chat/v1" ;;
+        minimax)  echo "https://api.minimax.io/v1" ;;
+        seed)     echo "https://ark.cn-beijing.volces.com/api/v3" ;;
+    esac
+}
 
 # Load config: environment variables take priority, config file supplements
 load_config() {
@@ -666,7 +670,7 @@ emit_codex_config() {
         "doubao") target="seed" ;;
     esac
 
-    local endpoint="${CODEX_ENDPOINTS[$target]:-}"
+    local endpoint="$(get_codex_endpoint "$target")"
 
     # Map provider → shared model env var + API key env var (from .mx_config)
     local model_var="" key_var="" display_name=""
@@ -764,7 +768,7 @@ emit_opencode_config() {
         "doubao") target="seed" ;;
     esac
 
-    local endpoint="${OPENCODE_ENDPOINTS[$target]:-}"
+    local endpoint="$(get_opencode_endpoint "$target")"
 
     # Map provider → shared model env var + API key env var + display name
     local model_var="" key_var="" display_name=""
