@@ -318,10 +318,9 @@ ENVEOF
   ok "$ENV_FILE"
 
   # Source env from profile
-  # Add to .bashrc (interactive shells) and .profile (login shells)
-  # Both are needed: .bashrc has early-return guard for non-interactive,
-  # so Codex launched from login shell won't get env vars from .bashrc alone.
-  for RCFILE in "$HOME/.bashrc" "$HOME/.profile"; do
+  # Add to .bashrc (interactive shells), .profile (login shells), .zshrc (macOS default)
+  # All needed: different shells/OSes source different files on startup
+  for RCFILE in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc"; do
     [ -f "$RCFILE" ] || continue
     if ! grep -qF '.mx_env' "$RCFILE" 2>/dev/null; then
       # Remove stale .claude/env source line if present
@@ -331,7 +330,6 @@ ENVEOF
       echo '. "$HOME/.mx_env"' >> "$RCFILE"
     fi
   done
-  [ -f "$HOME/.zshrc" ] && [ -n "${ZSH_VERSION:-}" ] && ! grep -qF '.mx_env' "$HOME/.zshrc" 2>/dev/null && echo '. "$HOME/.mx_env"' >> "$HOME/.zshrc"
   source "$ENV_FILE" 2>/dev/null || true
   ok "env sourced in shell profiles"
 }
@@ -362,7 +360,7 @@ if [ "$MX_ONLY" = true ]; then
   printf "${GREEN}║${NC}                                                          ${GREEN}║${NC}\n"
   printf "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}\n"
   echo ""
-  info "Run 'source ~/.bashrc' or open a new terminal."
+  info "Run 'source ~/.bashrc' (or ~/.zshrc) or open a new terminal."
   exit 0
 fi
 
