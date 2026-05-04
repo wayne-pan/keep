@@ -12,7 +12,7 @@ Closed-loop: Perceive → Build → Verify → Self-Heal.
 |-------|----------|------|
 | Trivial | 1 file, <5 lines, no design | BUILD→VERIFY |
 | Standard | 1-2 files, <50 lines | READ→BUILD→VERIFY |
-| Complex | 3+ files OR design OR >50 lines | IDENTIFY→READ→PLAN→BUILD→VERIFY→CLAIM |
+| Complex | 3+ files OR design OR >50 lines | IDENTIFY→READ→PLAN→BUILD→VERIFY→CLAIM (then cross-review skill) |
 
 Target: trivial ≤2 turns, standard ≤3, complex ≤8.
 
@@ -38,6 +38,7 @@ All subagents must return: `{"summary", "confidence": 0-1, "findings": [], "stat
 ### Memory Protocol
 Tiers: immutable (never pruned), append-only (summarized), overwritable (pruned freely). Tag with `concept:<tier>`.
 Relations: `rel:<type>:<id>` in concepts field. Types: supersedes, contradicts, derived_from, relates_to, in_cluster.
+Conflict: higher-confidence wins; delta<0.2 → flag for human review.
 Retrieval: `search → get_observations → related(depth=2) → verify`. Decay: immutable=none, append-only=5%/yr, overwritable=20%/yr.
 
 ### Safety Tiers
