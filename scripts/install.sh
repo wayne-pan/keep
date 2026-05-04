@@ -61,6 +61,7 @@ deploy_file() {
 #   Use ONLY when dest is 100% project-owned (no generated files)
 deploy_dir() {
   local src_dir="${1%/}" dest_dir="$2"
+  [ -z "$dest_dir" ] && return 1
   if [ "$DEPLOY_MODE" = "symlink" ]; then
     rm -rf "$dest_dir"
     ln -sf "$src_dir" "$dest_dir"
@@ -166,7 +167,7 @@ if [ -n "$ADAPTER" ]; then
     fi
 
   DETECT=$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('detect',''))")
-  CONFIG_PATH=$(eval echo "$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('config_path',''))")")
+  CONFIG_PATH=$(python3 -c "import json, os; print(os.path.expandvars(json.load(open('$ADAPTER_FILE')).get('config_path','')))")
   MCP_KEY=$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('mcp_key','mcpServers'))")
   CONFIG_FORMAT=$(python3 -c "import json; print(json.load(open('$ADAPTER_FILE')).get('config_format','json'))")
 
@@ -758,6 +759,7 @@ deploy_opencode_harness() {
   mkdir -p "$OPENCODE_DIR"
 
   # 1. Deploy skills to ~/.config/opencode/skills/
+  mkdir -p "$OPENCODE_DIR/skills"
   for skill_dir in "$PROJECT_DIR"/skills/*/; do
     skill_dir="${skill_dir%/}"
     skill_name="$(basename "$skill_dir")"
@@ -1173,8 +1175,9 @@ if [ -d "$ADAPTERS_DIR" ]; then
     [ "$adapter_name" = "claude-code" ] && continue  # Already configured
     [ "$adapter_name" = "codex" ] && continue        # Handled above
     [ "$adapter_name" = "opencode" ] && continue      # Handled above
+    # detect_cmd is trusted: adapter JSON files ship with the repo
     detect_cmd=$(python3 -c "import json; print(json.load(open('$adapter_file')).get('detect','false'))" 2>/dev/null || echo "false")
-    if eval "$detect_cmd" &>/dev/null; then
+    if sh -c "$detect_cmd" &>/dev/null; then
       info "Detected: $adapter_name — configuring..."
       "$0" --adapter "$adapter_name" && ok "$adapter_name adapter" || warn "$adapter_name adapter failed"
     fi
