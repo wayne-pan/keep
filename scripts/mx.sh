@@ -173,6 +173,8 @@ is_effectively_set() {
     [[ -z "$v" ]] && return 1
     local lower=$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')
     [[ "$lower" == *your-*-api-key ]] && return 1
+    [[ "$lower" == *your-*-token ]] && return 1
+    [[ "$lower" == *your-*-base-url ]] && return 1
     return 0
 }
 
@@ -366,6 +368,7 @@ delete_account() {
     grep -v "\"$account_name\":" "$ACCOUNTS_FILE" > "$temp_file"
     local temp_file2=$(mktemp)
     sed 's/,\s*}/}/g' "$temp_file" > "$temp_file2"
+    rm -f "$temp_file"
     mv "$temp_file2" "$ACCOUNTS_FILE"
     chmod 600 "$ACCOUNTS_FILE"
     echo -e "${GREEN}Account deleted: $account_name${NC}"
@@ -598,6 +601,9 @@ write_claude_settings() {
             display_name="Claude Haiku"
             ;;
         "litellm")
+            if ! is_effectively_set "$LITELLM_BASE_URL"; then
+                echo -e "${RED}Please configure LITELLM_BASE_URL (mx set url <url>)${NC}" >&2; return 1
+            fi
             if ! is_effectively_set "$LITELLM_TOKEN"; then
                 echo -e "${RED}Please configure LITELLM_TOKEN (mx set token <key>)${NC}" >&2; return 1
             fi
@@ -689,7 +695,7 @@ emit_codex_config() {
 
     if [[ -z "$endpoint" || -z "$model_var" ]]; then
         echo -e "${RED}Unknown Codex provider: $target${NC}" >&2
-        echo -e "${YELLOW}Supported: deepseek, glm, kimi, qwen, longcat, minimax, seed${NC}" >&2
+        echo -e "${YELLOW}Supported: deepseek, glm, kimi, qwen, longcat, minimax, seed, litellm${NC}" >&2
         return 1
     fi
 
@@ -760,6 +766,7 @@ base_url = "$endpoint"
 wire_api = "chat"
 env_key = "$key_var"
 EOF
+    chmod 600 "$CODEX_CONFIG"
 
     echo -e "${GREEN}Codex CLI → $target ($model_id)${NC}" >&2
     echo -e "${BLUE}Config: $CODEX_CONFIG${NC}" >&2
@@ -893,6 +900,7 @@ os.makedirs(os.path.dirname(config_path), exist_ok=True)
 with open(config_path, "w") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
+os.chmod(config_path, 0o600)
 
 registered_mcp = [k for k in ("mind", "codedb") if k in mcp]
 print(f"  Config written to {config_path}")
@@ -1042,6 +1050,7 @@ show_help() {
     echo "  longcat            - LongCat-Flash-Thinking"
     echo "  minimax            - MiniMax-M2"
     echo "  seed               - doubao-seed-code"
+    echo "  litellm            - LiteLLM proxy"
     echo ""
     echo -e "${YELLOW}OpenCode CLI models:${NC}"
     echo "  deepseek           - deepseek-chat"
@@ -1051,6 +1060,7 @@ show_help() {
     echo "  longcat            - LongCat-Flash-Thinking"
     echo "  minimax            - MiniMax-M2"
     echo "  seed               - doubao-seed-code"
+    echo "  litellm            - LiteLLM proxy"
     echo ""
     echo -e "${YELLOW}Account Management:${NC}"
     echo "  save-account <name>     - Save current Claude Pro account"
@@ -1145,7 +1155,7 @@ main() {
             local model="${1:-}"
             if [[ -z "$model" ]]; then
                 echo -e "${YELLOW}Usage: mx codex <model>${NC}" >&2
-                echo -e "${YELLOW}Models: deepseek, glm, kimi, qwen, longcat, minimax, seed${NC}" >&2
+                echo -e "${YELLOW}Models: deepseek, glm, kimi, qwen, longcat, minimax, seed, litellm${NC}" >&2
                 return 1
             fi
             emit_codex_config "$model"
@@ -1156,7 +1166,7 @@ main() {
             local model="${1:-}"
             if [[ -z "$model" ]]; then
                 echo -e "${YELLOW}Usage: mx opencode <model>${NC}" >&2
-                echo -e "${YELLOW}Models: deepseek, glm, kimi, qwen, longcat, minimax, seed${NC}" >&2
+                echo -e "${YELLOW}Models: deepseek, glm, kimi, qwen, longcat, minimax, seed, litellm${NC}" >&2
                 return 1
             fi
             emit_opencode_config "$model"
