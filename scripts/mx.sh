@@ -138,31 +138,31 @@ CLAUDE_API_KEY=your-claude-api-key
 # LiteLLM (unified proxy — use mx set url/token/model to switch)
 LITELLM_BASE_URL=your-litellm-base-url
 LITELLM_TOKEN=your-litellm-token
-LITELLM_MODEL=claude-sonnet
+LITELLM_MODEL=claude-sonnet-4-6
 
 # Model ID overrides (optional)
-DEEPSEEK_MODEL=deepseek-chat
-DEEPSEEK_SMALL_FAST_MODEL=deepseek-chat
-KIMI_MODEL=kimi-for-coding
-KIMI_SMALL_FAST_MODEL=kimi-for-coding
-KIMI_CN_MODEL=kimi-k2-thinking
-KIMI_CN_SMALL_FAST_MODEL=kimi-k2-thinking
-QWEN_MODEL=qwen3-max
+DEEPSEEK_MODEL=deepseek-v3.2
+DEEPSEEK_SMALL_FAST_MODEL=deepseek-v3.2
+KIMI_MODEL=kimi-k2.6
+KIMI_SMALL_FAST_MODEL=kimi-k2.6
+KIMI_CN_MODEL=kimi-k2.6
+KIMI_CN_SMALL_FAST_MODEL=kimi-k2.6
+QWEN_MODEL=qwen3.6-max-preview
 QWEN_SMALL_FAST_MODEL=qwen3-next-80b-a3b-instruct
 GLM_MODEL=glm-5.1
-GLM_SMALL_FAST_MODEL=glm-4.5-air
-CLAUDE_MODEL=claude-sonnet-4-5-20250929
-CLAUDE_SMALL_FAST_MODEL=claude-sonnet-4-5-20250929
-OPUS_MODEL=claude-opus-4-5-20251101
-OPUS_SMALL_FAST_MODEL=claude-sonnet-4-5-20250929
+GLM_SMALL_FAST_MODEL=glm-4.7-flash
+CLAUDE_MODEL=claude-sonnet-4-6
+CLAUDE_SMALL_FAST_MODEL=claude-sonnet-4-6
+OPUS_MODEL=claude-opus-4-7
+OPUS_SMALL_FAST_MODEL=claude-sonnet-4-6
 HAIKU_MODEL=claude-haiku-4-5
 HAIKU_SMALL_FAST_MODEL=claude-haiku-4-5
 LONGCAT_MODEL=LongCat-Flash-Thinking
 LONGCAT_SMALL_FAST_MODEL=LongCat-Flash-Chat
-MINIMAX_MODEL=MiniMax-M2
-MINIMAX_SMALL_FAST_MODEL=MiniMax-M2
-SEED_MODEL=doubao-seed-code-preview-latest
-SEED_SMALL_FAST_MODEL=doubao-seed-code-preview-latest
+MINIMAX_MODEL=MiniMax-M2.7
+MINIMAX_SMALL_FAST_MODEL=MiniMax-M2.7
+SEED_MODEL=doubao-seed-2.0-code
+SEED_SMALL_FAST_MODEL=doubao-seed-2.0-code
 
 EOF
 }
@@ -507,7 +507,7 @@ write_claude_settings() {
             base_url="https://api.deepseek.com/anthropic"
             api_url="https://api.deepseek.com/anthropic"
             auth_token="$DEEPSEEK_API_KEY"
-            model="${DEEPSEEK_MODEL:-deepseek-chat}"
+            model="${DEEPSEEK_MODEL:-deepseek-v3.2}"
             timeout="600000"
             display_name="Deepseek"
             ;;
@@ -518,7 +518,7 @@ write_claude_settings() {
             base_url="https://api.kimi.com/coding/"
             api_url="https://api.kimi.com/coding/"
             auth_token="$KIMI_API_KEY"
-            model="${KIMI_MODEL:-kimi-for-coding}"
+            model="${KIMI_MODEL:-kimi-k2.6}"
             timeout="600000"
             display_name="Kimi"
             ;;
@@ -529,7 +529,7 @@ write_claude_settings() {
             base_url="https://api.moonshot.cn/anthropic"
             api_url="https://api.moonshot.cn/anthropic"
             auth_token="$KIMI_API_KEY"
-            model="${KIMI_CN_MODEL:-kimi-k2-thinking}"
+            model="${KIMI_CN_MODEL:-kimi-k2.6}"
             timeout="600000"
             display_name="Kimi-CN"
             ;;
@@ -540,7 +540,7 @@ write_claude_settings() {
             base_url="https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy"
             api_url="https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy"
             auth_token="$QWEN_API_KEY"
-            model="${QWEN_MODEL:-qwen3-max}"
+            model="${QWEN_MODEL:-qwen3.6-max-preview}"
             timeout="600000"
             display_name="Qwen"
             ;;
@@ -573,7 +573,7 @@ write_claude_settings() {
             base_url="https://api.minimax.io/anthropic"
             api_url="https://api.minimax.io/anthropic"
             auth_token="$MINIMAX_API_KEY"
-            model="${MINIMAX_MODEL:-MiniMax-M2}"
+            model="${MINIMAX_MODEL:-MiniMax-M2.7}"
             timeout="600000"
             display_name="MiniMax"
             ;;
@@ -584,16 +584,16 @@ write_claude_settings() {
             base_url="https://ark.cn-beijing.volces.com/api/coding"
             api_url="https://ark.cn-beijing.volces.com/api/coding"
             auth_token="$ARK_API_KEY"
-            model="${SEED_MODEL:-doubao-seed-code-preview-latest}"
+            model="${SEED_MODEL:-doubao-seed-2.0-code}"
             timeout="3000000"
             display_name="Seed"
             ;;
         "claude"|"sonnet"|"s")
-            model="${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
+            model="${CLAUDE_MODEL:-claude-sonnet-4-6}"
             display_name="Claude Sonnet"
             ;;
         "opus"|"o")
-            model="${OPUS_MODEL:-claude-opus-4-5-20251101}"
+            model="${OPUS_MODEL:-claude-opus-4-7}"
             display_name="Claude Opus"
             ;;
         "haiku"|"h")
@@ -973,7 +973,7 @@ set_api_key() {
     local env_var=""
     case "$provider" in
         "deepseek"|"ds") env_var="DEEPSEEK_API_KEY" ;;
-        "glm"|"glm4"|"glm4.7") env_var="GLM_API_KEY" ;;
+        "glm"|"glm5"|"glm5.1") env_var="GLM_API_KEY" ;;
         "kimi") env_var="KIMI_API_KEY" ;;
         "longcat"|"lc") env_var="LONGCAT_API_KEY" ;;
         "minimax"|"mm") env_var="MINIMAX_API_KEY" ;;
@@ -1036,29 +1036,29 @@ show_help() {
     echo "  longcat, lc        - LongCat"
     echo "  minimax, mm        - MiniMax M2"
     echo "  qwen               - Qwen"
-    echo "  glm, glm4          - GLM"
+    echo "  glm, glm5          - GLM"
     echo "  litellm            - LiteLLM proxy"
     echo "  claude, sonnet, s  - Claude Sonnet 4.5"
     echo "  opus, o            - Claude Opus 4.5"
     echo "  haiku, h           - Claude Haiku 4.5"
     echo ""
     echo -e "${YELLOW}Codex CLI models:${NC}"
-    echo "  deepseek           - deepseek-chat"
+    echo "  deepseek           - deepseek-v3.2"
     echo "  glm                - glm-5.1"
-    echo "  kimi               - kimi-k2-thinking"
-    echo "  qwen               - qwen3-max"
+    echo "  kimi               - kimi-k2.6"
+    echo "  qwen               - qwen3.6-max-preview"
     echo "  longcat            - LongCat-Flash-Thinking"
-    echo "  minimax            - MiniMax-M2"
+    echo "  minimax            - MiniMax-M2.7"
     echo "  seed               - doubao-seed-code"
     echo "  litellm            - LiteLLM proxy"
     echo ""
     echo -e "${YELLOW}OpenCode CLI models:${NC}"
-    echo "  deepseek           - deepseek-chat"
+    echo "  deepseek           - deepseek-v3.2"
     echo "  glm                - glm-5.1"
-    echo "  kimi               - kimi-for-coding"
-    echo "  qwen               - qwen3-max"
+    echo "  kimi               - kimi-k2.6"
+    echo "  qwen               - qwen3.6-max-preview"
     echo "  longcat            - LongCat-Flash-Thinking"
-    echo "  minimax            - MiniMax-M2"
+    echo "  minimax            - MiniMax-M2.7"
     echo "  seed               - doubao-seed-code"
     echo "  litellm            - LiteLLM proxy"
     echo ""
@@ -1096,7 +1096,7 @@ show_help() {
 # ── All valid model names (for routing) ──
 is_claude_model() {
     case "$1" in
-        deepseek|ds|kimi|kimi2|kimi-cn|qwen|glm|glm4|glm4.7|longcat|lc|minimax|mm|seed|doubao|claude|sonnet|s|opus|o|haiku|h|litellm) return 0 ;;
+        deepseek|ds|kimi|kimi2|kimi-cn|qwen|glm|glm5|glm5.1|longcat|lc|minimax|mm|seed|doubao|claude|sonnet|s|opus|o|haiku|h|litellm) return 0 ;;
         *) return 1 ;;
     esac
 }
