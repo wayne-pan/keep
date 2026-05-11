@@ -1,6 +1,6 @@
 #!/bin/bash
 ############################################################
-# mx — Model eXchange
+# mx — Model Switch
 # ---------------------------------------------------------
 # Unified model switcher for Claude Code and Codex CLI
 # Supports: Claude, Deepseek, GLM5.1, KIMI, Qwen, etc.
@@ -107,7 +107,7 @@ load_config() {
 # Create default config file
 create_default_config() {
     cat > "$CONFIG_FILE" << 'EOF'
-# mx Config — Model eXchange
+# mx Config — Model Switch
 # Replace with your actual API keys
 # Note: Environment variables take priority over this file
 
@@ -1019,7 +1019,7 @@ set_api_key() {
 
 # Show help
 show_help() {
-    echo -e "${BLUE}mx — Model eXchange v4.0.0${NC}"
+    echo -e "${BLUE}mx — Model Switch v4.0.0${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC} mx [tool] <model>"
     echo ""

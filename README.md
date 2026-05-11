@@ -98,9 +98,9 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 | `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
 | `/keep:harness` | Component changes | Manage keep's own configuration |
 
-### Model Manager (mx)
+### Model Switcher (mx)
 
-`mx` (Model eXchange) is a unified model switcher for both Claude Code and Codex CLI, supporting 15+ providers:
+`mx` (Model Switch) is a unified model switcher for both Claude Code and Codex CLI, supporting 15+ providers:
 
 **Claude Code** (emits shell exports):
 

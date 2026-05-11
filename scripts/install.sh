@@ -445,7 +445,7 @@ install_claude_code_cli() {
 }
 install_claude_code_cli
 
-# ── mx (Model eXchange) ──
+# ── mx (Model Switch) ──
 install_mx
 configure_mx_env
 
