@@ -365,7 +365,7 @@ delete_account() {
     fi
 
     local temp_file=$(mktemp)
-    grep -v "\"$account_name\":" "$ACCOUNTS_FILE" > "$temp_file"
+    grep -Fv "\"$account_name\":" "$ACCOUNTS_FILE" > "$temp_file"
     local temp_file2=$(mktemp)
     sed 's/,\s*}/}/g' "$temp_file" > "$temp_file2"
     rm -f "$temp_file"
@@ -544,7 +544,7 @@ write_claude_settings() {
             timeout="600000"
             display_name="Qwen"
             ;;
-        "glm")
+        "glm"|"glm5"|"glm5.1")
             if ! is_effectively_set "$GLM_API_KEY"; then
                 echo -e "${RED}Please configure GLM_API_KEY${NC}" >&2; return 1
             fi
@@ -610,7 +610,7 @@ write_claude_settings() {
             base_url="$LITELLM_BASE_URL"
             api_url="$LITELLM_BASE_URL"
             api_key="$LITELLM_TOKEN"
-            model="${LITELLM_MODEL:-claude-sonnet}"
+            model="${LITELLM_MODEL:-claude-sonnet-4-6}"
             timeout="600000"
             display_name="LiteLLM"
             ;;
@@ -842,18 +842,19 @@ emit_opencode_config() {
     local api_key_value="${!key_var}"
 
     # Build provider + MCP config via python3 for proper JSON
-    python3 - "$config_path" "$target" "$display_name" "$endpoint" "$api_key_value" "$model_id" "$mind_python" "$mind_server" "$codedb_bin" << 'PYEOF'
+    # API key passed via env var to avoid exposure in /proc/pid/cmdline
+    MX_API_KEY="$api_key_value" python3 - "$config_path" "$target" "$display_name" "$endpoint" "$model_id" "$mind_python" "$mind_server" "$codedb_bin" << 'PYEOF'
 import json, sys, os
 
 config_path = sys.argv[1]
 provider_id = sys.argv[2]
 display_name = sys.argv[3]
 base_url = sys.argv[4]
-api_key_value = sys.argv[5]
-model_id = sys.argv[6]
-mind_python = sys.argv[7]
-mind_server = sys.argv[8]
-codedb_bin = sys.argv[9]
+model_id = sys.argv[5]
+mind_python = sys.argv[6]
+mind_server = sys.argv[7]
+codedb_bin = sys.argv[8]
+api_key_value = os.environ["MX_API_KEY"]
 
 # Read existing config to preserve other providers
 try:
@@ -1038,8 +1039,8 @@ show_help() {
     echo "  qwen               - Qwen"
     echo "  glm, glm5          - GLM"
     echo "  litellm            - LiteLLM proxy"
-    echo "  claude, sonnet, s  - Claude Sonnet 4.5"
-    echo "  opus, o            - Claude Opus 4.5"
+    echo "  claude, sonnet, s  - Claude Sonnet 4.6"
+    echo "  opus, o            - Claude Opus 4.7"
     echo "  haiku, h           - Claude Haiku 4.5"
     echo ""
     echo -e "${YELLOW}Codex CLI models:${NC}"

@@ -40,6 +40,7 @@ Tiers: immutable (never pruned), append-only (summarized), overwritable (pruned 
 Relations: `rel:<type>:<id>` in concepts field. Types: supersedes, contradicts, derived_from, relates_to, in_cluster.
 Conflict: higher-confidence wins; delta<0.2 → flag for human review.
 Retrieval: `search → get_observations → related(depth=2) → verify`. Decay: immutable=none, append-only=5%/yr, overwritable=20%/yr.
+Project scoping: always pass `project` to remember/recall/search/wakeup. Current project = `$(basename $PROJECT_DIR)`. Project-scoped queries get project filter; cross-project queries (preferences, general patterns) omit it.
 
 ### Safety Tiers
 Tier 1 (auto-allowed): Read, Glob, Grep, git read-only, tests, memory tools, system info.
@@ -56,7 +57,7 @@ Enforcement: safety-guard.sh blocks destructive patterns. This tier is advisory.
 - Preserve: decisions, task goals, errors, modified files, identifiers. Compress: research, tool output, reasoning.
 
 ### Session Resume
-On session start: `wakeup(project)` → `search("session-checkpoint")` → present branch/dirty/modified to user. Checkpoints are append-only.
+On session start: `wakeup(project)` → `search("session-checkpoint", project=project)` → present branch/dirty/modified to user. Checkpoints are append-only.
 
 ### Bash
 - Every cmd: check exit code, scan stderr

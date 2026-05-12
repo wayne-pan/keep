@@ -84,14 +84,23 @@ def generate_wake_up(project: str | None = None, max_tokens: int = 170) -> str:
         if l1_budget <= 0:
             break
 
-    # L2: Recent high-salience observations (EverOS-inspired: active context)
+    # L2: Recent high-salience observations (project-prioritized)
     l2_lines = []
     l2_budget = 200  # chars
-    recent_obs = db.execute(
-        "SELECT id, type, title, salience FROM observations "
-        "WHERE salience >= 0.7 "
-        "ORDER BY created_epoch DESC LIMIT 5"
-    ).fetchall()
+    if project:
+        # Project observations first, then cross-project fill
+        recent_obs = db.execute(
+            "SELECT id, type, title, salience, project FROM observations "
+            "WHERE salience >= 0.7 "
+            "ORDER BY CASE WHEN project = ? THEN 0 ELSE 1 END, created_epoch DESC LIMIT 5",
+            (project,),
+        ).fetchall()
+    else:
+        recent_obs = db.execute(
+            "SELECT id, type, title, salience FROM observations "
+            "WHERE salience >= 0.7 "
+            "ORDER BY created_epoch DESC LIMIT 5"
+        ).fetchall()
     for obs in recent_obs:
         line = f"- [#{obs['id']}] {obs['title'][:60]}"
         l2_lines.append(line)
@@ -99,14 +108,29 @@ def generate_wake_up(project: str | None = None, max_tokens: int = 170) -> str:
         if l2_budget <= 0:
             break
 
-    # L3: Last session checkpoint (cross-session continuity)
+    # L3: Last session checkpoint (project-prioritized)
     l3_lines = []
     l3_budget = 160  # chars
-    checkpoint = db.execute(
-        "SELECT id, title, narrative FROM observations "
-        "WHERE type = 'session-checkpoint' "
-        "ORDER BY created_epoch DESC LIMIT 1"
-    ).fetchone()
+    if project:
+        checkpoint = db.execute(
+            "SELECT id, title, narrative FROM observations "
+            "WHERE type = 'session-checkpoint' AND project = ? "
+            "ORDER BY created_epoch DESC LIMIT 1",
+            (project,),
+        ).fetchone()
+        # Fallback to any project if no project-specific checkpoint
+        if not checkpoint:
+            checkpoint = db.execute(
+                "SELECT id, title, narrative FROM observations "
+                "WHERE type = 'session-checkpoint' "
+                "ORDER BY created_epoch DESC LIMIT 1"
+            ).fetchone()
+    else:
+        checkpoint = db.execute(
+            "SELECT id, title, narrative FROM observations "
+            "WHERE type = 'session-checkpoint' "
+            "ORDER BY created_epoch DESC LIMIT 1"
+        ).fetchone()
     if checkpoint:
         import json as _json
 
