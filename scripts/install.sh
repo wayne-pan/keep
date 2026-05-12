@@ -1003,7 +1003,6 @@ def get_defaults():
         "autoMemoryEnabled": False,
         "autoUpdaterStatus": "disabled",
         "showClearContextOnPlanAccept": True,
-        "skipDangerousModePermissionPrompt": True,
         "effortLevel": "high",
         "enabledPlugins": {},
         "extraKnownMarketplaces": {},
