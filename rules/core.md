@@ -16,16 +16,25 @@ Closed-loop: Perceive → Build → Verify → Self-Heal.
 
 Target: trivial ≤2 turns, standard ≤3, complex ≤8.
 
+### Think Before Coding
+- State assumptions explicitly. If uncertain, ask — don't guess silently.
+- Multiple interpretations exist? Present them, don't pick one and run.
+- If a simpler approach exists, say so. Push back when warranted.
+- Confused? Stop. Name what's unclear. Ask.
+
 ### Build Discipline
 - Plan mode for non-trivial (3+ steps or architecture)
 - Tests pass → stop. Don't refactor passing code
 - Search codebase for existing utils before writing new ones
 - Every changed line must trace to user request
+- Simplicity gate (your own code): if your first draft is 200 lines and a 50-line equivalent exists with same behavior, use the shorter version. No unused features, abstractions, or error handling for failure modes the current call site cannot produce.
+- Surgical edits: don't "improve" adjacent code, comments, or formatting. Match existing style (except where existing style violates the simplicity gate). Notice unrelated dead code — mention it, don't delete it.
 
 ### Verify & Self-Heal
 - After editing: check syntax, run tests, scan stderr
 - Error protocol: read error → search memory → fix root cause → ONE retry → rollback → escalate
 - 3 same-type fails → STOP, escalate to user
+- Goal-driven verification (standard+complex, when test framework available): transform tasks into testable goals. "Add X" → "Write test for X, then make it pass". "Fix bug" → "Write reproducing test, then make it pass". For multi-step: state plan as `Step → verify: check`. Loop until goal met.
 
 ### Guardrails
 - >30 tool calls: compress context, narrow focus
