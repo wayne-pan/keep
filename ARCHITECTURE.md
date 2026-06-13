@@ -602,7 +602,7 @@ Unified model switching for both **Claude Code** and **Codex CLI** across 15+ mo
 | `mx kimi` / `mx kimi2` | KIMI for Coding | api.kimi.com |
 | `mx kimi-cn` | KIMI K2 Thinking | api.moonshot.cn |
 | `mx qwen` | Qwen3 Max | dashscope.aliyuncs.com |
-| `mx glm` | GLM 5.1 | open.bigmodel.cn |
+| `mx glm` | GLM 5.2 | open.bigmodel.cn |
 | `mx seed` / `mx doubao` | Doubao Seed Code | ark.cn-beijing.volces.com |
 | `mx longcat` / `mx lc` | LongCat Flash | api.longcat.chat |
 | `mx minimax` / `mx mm` | MiniMax M2 | api.minimax.io |
@@ -613,7 +613,7 @@ Unified model switching for both **Claude Code** and **Codex CLI** across 15+ mo
 | Command | Model | Endpoint |
 |---------|-------|----------|
 | `mx codex deepseek` | deepseek-chat | api.deepseek.com/v1 |
-| `mx codex glm` | glm-5.1 | open.bigmodel.cn/api/paas/v4 |
+| `mx codex glm` | glm-5.2 | open.bigmodel.cn/api/paas/v4 |
 | `mx codex kimi` | kimi-k2-thinking | api.moonshot.cn/v1 |
 | `mx codex qwen` | qwen3-max | dashscope.aliyuncs.com |
 | `mx codex longcat` | LongCat-Flash-Thinking | api.longcat.chat/v1 |

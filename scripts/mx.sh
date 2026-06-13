@@ -3,7 +3,7 @@
 # mx — Model Switch
 # ---------------------------------------------------------
 # Unified model switcher for Claude Code and Codex CLI
-# Supports: Claude, Deepseek, GLM5.1, KIMI, Qwen, etc.
+# Supports: Claude, Deepseek, GLM5.2, KIMI, Qwen, etc.
 # Version: 4.0.0
 # License: MIT
 ############################################################
@@ -149,7 +149,7 @@ KIMI_CN_MODEL=kimi-k2.6
 KIMI_CN_SMALL_FAST_MODEL=kimi-k2.6
 QWEN_MODEL=qwen3.6-max-preview
 QWEN_SMALL_FAST_MODEL=qwen3-next-80b-a3b-instruct
-GLM_MODEL=glm-5.1
+GLM_MODEL=glm-5.2
 GLM_SMALL_FAST_MODEL=glm-4.7-flash
 CLAUDE_MODEL=claude-sonnet-4-6
 CLAUDE_SMALL_FAST_MODEL=claude-sonnet-4-6
@@ -544,14 +544,14 @@ write_claude_settings() {
             timeout="600000"
             display_name="Qwen"
             ;;
-        "glm"|"glm5"|"glm5.1")
+        "glm"|"glm5"|"glm5.2")
             if ! is_effectively_set "$GLM_API_KEY"; then
                 echo -e "${RED}Please configure GLM_API_KEY${NC}" >&2; return 1
             fi
             base_url="https://open.bigmodel.cn/api/anthropic"
             api_url="https://open.bigmodel.cn/api/anthropic"
             auth_token="$GLM_API_KEY"
-            model="${GLM_MODEL:-glm-5.1}"
+            model="${GLM_MODEL:-glm-5.2}"
             timeout="600000"
             display_name="GLM"
             ;;
@@ -974,7 +974,7 @@ set_api_key() {
     local env_var=""
     case "$provider" in
         "deepseek"|"ds") env_var="DEEPSEEK_API_KEY" ;;
-        "glm"|"glm5"|"glm5.1") env_var="GLM_API_KEY" ;;
+        "glm"|"glm5"|"glm5.2") env_var="GLM_API_KEY" ;;
         "kimi") env_var="KIMI_API_KEY" ;;
         "longcat"|"lc") env_var="LONGCAT_API_KEY" ;;
         "minimax"|"mm") env_var="MINIMAX_API_KEY" ;;
@@ -1045,7 +1045,7 @@ show_help() {
     echo ""
     echo -e "${YELLOW}Codex CLI models:${NC}"
     echo "  deepseek           - deepseek-v3.2"
-    echo "  glm                - glm-5.1"
+    echo "  glm                - glm-5.2"
     echo "  kimi               - kimi-k2.6"
     echo "  qwen               - qwen3.6-max-preview"
     echo "  longcat            - LongCat-Flash-Thinking"
@@ -1055,7 +1055,7 @@ show_help() {
     echo ""
     echo -e "${YELLOW}OpenCode CLI models:${NC}"
     echo "  deepseek           - deepseek-v3.2"
-    echo "  glm                - glm-5.1"
+    echo "  glm                - glm-5.2"
     echo "  kimi               - kimi-k2.6"
     echo "  qwen               - qwen3.6-max-preview"
     echo "  longcat            - LongCat-Flash-Thinking"
@@ -1097,7 +1097,7 @@ show_help() {
 # ── All valid model names (for routing) ──
 is_claude_model() {
     case "$1" in
-        deepseek|ds|kimi|kimi2|kimi-cn|qwen|glm|glm5|glm5.1|longcat|lc|minimax|mm|seed|doubao|claude|sonnet|s|opus|o|haiku|h|litellm) return 0 ;;
+        deepseek|ds|kimi|kimi2|kimi-cn|qwen|glm|glm5|glm5.2|longcat|lc|minimax|mm|seed|doubao|claude|sonnet|s|opus|o|haiku|h|litellm) return 0 ;;
         *) return 1 ;;
     esac
 }

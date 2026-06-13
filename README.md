@@ -105,7 +105,7 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 **Claude Code** (emits shell exports):
 
 ```bash
-mx glm          # GLM 5.1
+mx glm          # GLM 5.2
 mx sonnet       # Claude Sonnet 4.5
 mx opus         # Claude Opus 4.5
 mx deepseek     # Deepseek Chat
@@ -118,7 +118,7 @@ mx status       # Show current config
 **Codex CLI** (writes config.toml directly):
 
 ```bash
-mx codex glm       # GLM 5.1 via OpenAI-compatible endpoint
+mx codex glm       # GLM 5.2 via OpenAI-compatible endpoint
 mx codex deepseek  # Deepseek Chat
 mx codex qwen      # Qwen3 Max
 mx codex kimi      # KIMI K2 Thinking
