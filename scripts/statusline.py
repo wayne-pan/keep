@@ -102,8 +102,32 @@ def load_pricing():
     REFERENCE_MODEL,
 ) = load_pricing()
 
-# Fixed compact token limit for all models (trigger compaction earlier to save cost)
-COMPACT_TOKEN_LIMIT = 180_000
+# Default compact token limit (fallback when CLAUDE_CODE_AUTO_COMPACT_WINDOW unset)
+COMPACT_TOKEN_LIMIT_DEFAULT = 180_000
+
+
+def get_compact_config():
+    """Read compaction window + threshold from env (set in settings.json).
+
+    Returns (total_window, compact_limit). Window is None if env unset,
+    in which case compact_limit falls back to the hardcoded default.
+    """
+    window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
+    pct_s = os.environ.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
+    window = None
+    if window_s:
+        try:
+            window = int(window_s)
+        except ValueError:
+            pass
+    pct = 80
+    if pct_s:
+        try:
+            pct = int(pct_s)
+        except ValueError:
+            pass
+    limit = int(window * pct / 100) if window else COMPACT_TOKEN_LIMIT_DEFAULT
+    return window, limit
 
 
 def get_session_start(path):
@@ -388,13 +412,21 @@ def render(ctx):
     model = data.get("model", {}).get("display_name", "?")
     cwd = data.get("cwd", "")
 
-    # Context — prefer real total from stdin, fallback to pricing.json
+    # Context — prefer env-configured window, then stdin, then pricing.json
     cw = data.get("context_window", {})
     used_pct = (cw.get("used_percentage") or 0) if cw else 0
-    total_ctx = (cw.get("total_tokens") or None) if cw else None
+    stdin_total = (cw.get("total_tokens") or None) if cw else None
 
-    # Compact limit (fixed for all models)
-    compact_limit = COMPACT_TOKEN_LIMIT
+    # Absolute tokens used (preserved when recomputing against a larger window)
+    used_abs = int(stdin_total * used_pct / 100) if stdin_total else 0
+
+    # Env window (CLAUDE_CODE_AUTO_COMPACT_WINDOW) overrides stdin total
+    env_window, compact_limit = get_compact_config()
+    if env_window and (not stdin_total or env_window > stdin_total):
+        total_ctx = env_window
+        used_pct = used_abs / total_ctx * 100 if total_ctx else 0
+    else:
+        total_ctx = stdin_total
 
     # Git
     branch, dirty = ctx.get("git", (None, False))
