@@ -346,12 +346,14 @@ def fmt_duration(start_iso):
 
 
 def get_context_size(model_name):
-    """Get context window size from loaded CONTEXT_SIZES."""
+    """Get context window size from loaded CONTEXT_SIZES. Longest key match wins
+    so glm-5.2 is not shadowed by glm-5. Match is case-insensitive."""
     name_lower = model_name.lower()
+    best_key, best_size = None, 200_000
     for key, size in CONTEXT_SIZES.items():
-        if key in name_lower:
-            return size
-    return 200_000  # default
+        if key.lower() in name_lower and (best_key is None or len(key) > len(best_key)):
+            best_key, best_size = key, size
+    return best_size
 
 
 def context_bar(pct, model_name, total_ctx=None, compact_limit=None):
@@ -415,7 +417,7 @@ def render(ctx):
     # Context — prefer env-configured window, then stdin, then pricing.json
     cw = data.get("context_window", {})
     used_pct = (cw.get("used_percentage") or 0) if cw else 0
-    stdin_total = (cw.get("total_tokens") or None) if cw else None
+    stdin_total = (cw.get("context_window_size") or None) if cw else None
 
     # Absolute tokens used (preserved when recomputing against a larger window)
     used_abs = int(stdin_total * used_pct / 100) if stdin_total else 0

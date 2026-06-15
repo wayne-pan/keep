@@ -13,6 +13,7 @@
     "opus":      { "in": 15,   "out": 75,  "provider": "anthropic", "context": 200000 },
     "sonnet":    { "in": 3,    "out": 15,  "provider": "anthropic", "context": 200000 },
     "haiku":     { "in": 0.8,  "out": 4,   "provider": "anthropic", "context": 200000 },
+    "glm-5.2":   { "in": 0.5,  "out": 0.5, "provider": "zhipu", "context": 1000000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
     "glm-5":     { "in": 0.5,  "out": 0.5, "provider": "zhipu", "context": 200000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
     "glm-4":     { "in": 0.1,  "out": 0.1, "provider": "zhipu", "context": 128000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
     "deepseek":  { "in": 0.27, "out": 1.10, "provider": "deepseek", "context": 128000, "cache_read_mult": 1.0, "cache_write_mult": 1.0 },
