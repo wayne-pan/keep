@@ -424,8 +424,13 @@ def render(ctx):
     # Absolute tokens used (preserved when recomputing against a larger window)
     used_abs = int(stdin_total * used_pct / 100) if stdin_total else 0
 
-    # Env window (CLAUDE_CODE_AUTO_COMPACT_WINDOW) overrides stdin total
+    # Env window (CLAUDE_CODE_AUTO_COMPACT_WINDOW) overrides stdin total,
+    # but is clamped to the model's real context size from pricing.json so
+    # a 1M env window doesn't inflate glm-4 (128K) / glm-5 (200K) / opus (200K).
     env_window, compact_limit = get_compact_config()
+    model_ctx = get_context_size(model)
+    if env_window:
+        env_window = min(env_window, model_ctx) if model_ctx else env_window
     if env_window and (not stdin_total or env_window > stdin_total):
         total_ctx = env_window
         used_pct = used_abs / total_ctx * 100 if total_ctx else 0
