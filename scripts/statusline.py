@@ -127,6 +127,8 @@ def get_compact_config():
         except ValueError:
             pass
     limit = int(window * pct / 100) if window else COMPACT_TOKEN_LIMIT_DEFAULT
+    if os.environ.get("DISABLE_AUTO_COMPACT"):
+        limit = None  # auto-compact disabled; hide cap display
     return window, limit
 
 
