@@ -150,6 +150,7 @@ KIMI_CN_SMALL_FAST_MODEL=kimi-k2.6
 QWEN_MODEL=qwen3.6-max-preview
 QWEN_SMALL_FAST_MODEL=qwen3-next-80b-a3b-instruct
 GLM_MODEL=glm-5.2
+GLM_CLAUDE_MODEL=glm-5.2[1m]
 GLM_SMALL_FAST_MODEL=glm-4.7-flash
 CLAUDE_MODEL=claude-sonnet-4-6
 CLAUDE_SMALL_FAST_MODEL=claude-sonnet-4-6
@@ -551,7 +552,7 @@ write_claude_settings() {
             base_url="https://open.bigmodel.cn/api/anthropic"
             api_url="https://open.bigmodel.cn/api/anthropic"
             auth_token="$GLM_API_KEY"
-            model="${GLM_MODEL:-glm-5.2}"
+            model="${GLM_CLAUDE_MODEL:-glm-5.2[1m]}"
             timeout="600000"
             display_name="GLM"
             ;;

@@ -936,7 +936,6 @@ def get_defaults():
         "env": {
             "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
-            "DISABLE_AUTO_COMPACT": "1",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
         },
