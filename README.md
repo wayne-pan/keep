@@ -97,6 +97,7 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 | `/keep:ubiquitous-language` | "/keep:ubiquitous-language" | Shared vocabulary management |
 | `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
 | `/keep:harness` | Component changes | Manage keep's own configuration |
+| `/keep:loop` | "set up a loop", "run unattended" | Loop Engineering — five-move automated loop with evaluator gate |
 
 ### Model Switcher (mx)
 

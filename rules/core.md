@@ -1,6 +1,7 @@
 ## Core Workflow
 
 Closed-loop: Perceive → Build → Verify → Self-Heal.
+Loop Engineering (one floor above this harness, unattended): see rules/loop-engineering.md and `/keep:loop`.
 
 ### Direct Answer
 - Read-only queries (list, describe, summarize, explain): answer from prompt directly.
