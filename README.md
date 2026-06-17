@@ -51,7 +51,7 @@ keep/
 │   ├── search/             # FTS5 + recall engine
 │   └── dream/              # Memory maintenance cycle (dedup, merge, prune, strengthen)
 ├── hooks/                  # 28 Claude Code hooks (bash)
-├── skills/                 # 13 skill workflows
+├── skills/                 # 14 skill workflows
 ├── scripts/                # Installer, model switcher, benchmarks
 └── rules/                  # Behavioral rules
 ```
