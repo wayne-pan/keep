@@ -10,6 +10,10 @@ All sprint state lives on disk in `.sprint/`. Context compaction is safe — sta
 | `RESEARCH.md` | Compressed research findings | Research phase |
 | `DECISIONS.md` | Architecture decisions + rationale | Plan phase, ad-hoc |
 | `KNOWLEDGE.md` | Project-specific knowledge (append-only) | Any phase |
+| `FINDINGS.md` | Cross-session insights (append-only) | Reflect phase |
+| `EXPERIMENTS.tsv` | Benchmark experiment log (iteration, metric, delta, status) | Benchmark runs |
+| `TRIPLETS.jsonl` | Structured test triplets (state, action, reward) for regression tracking | Test phase |
+| `CHECKPOINT.yaml` | Phase boundary checkpoint (see schema below) | Each phase boundary |
 | `STUCK.md` | Stuck detection diagnosis | When stuck detected |
 
 ## STATE.yaml Schema
@@ -110,4 +114,25 @@ Append-only — never delete, only add. This accumulates project knowledge acros
 
 ### Cleanup
 - Delete `.sprint/` directory at Ship phase completion (after Reflect)
-- KNOWLEDGE.md may be preserved in project root if valuable
+- KNOWLEDGE.md and FINDINGS.md may be preserved in project root if valuable
+
+## CHECKPOINT.yaml Schema
+
+Saved at each phase boundary by `sprint-checkpoint save <phase> <step>`. On sprint start, `sprint-checkpoint resume` returns the most recent checkpoint (or `none`).
+
+```yaml
+phase: implement
+step: "module-3"
+files_modified: "file1.sh,file2.py"
+timestamp: "2026-04-29T10:00:00Z"
+remaining: [review, test, ship]
+pending_decisions: []
+```
+
+## KV Store Lifecycle
+
+The KV store provides shared state between sub-agents:
+
+- **Setup**: auto-initializes on first `kv-set` call (per session)
+- **Usage**: sub-agents write findings via `kv-set`, coordinator reads via `kv-get`
+- **Teardown**: `kv-clear` at sprint completion (temp dir auto-cleaned on reboot)

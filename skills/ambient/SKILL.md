@@ -1,12 +1,13 @@
 ---
 name: keep:ambient
-version: "1.0"
+version: "1.1"
 triggers: ["/keep:ambient", "/keep:garden", "/keep:scout"]
 description: >
   Ambient mode for memory maintenance and project health. Three sub-modes:
   Garden (memory consolidation), Scout (project health check), Work (process staged observations).
-  Use when user says /keep:ambient, /keep:garden, /keep:scout, or wants to "maintain memory",
+  TRIGGER when: user says /keep:ambient, /keep:garden, /keep:scout, or wants to "maintain memory",
   "check project health", "tend the garden", "scout issues", or "process queue".
+  Do NOT trigger for: one-off tasks, feature work, or active coding (use /keep:sprint).
 resources: ['mind', 'git', 'cron']
 ---
 
@@ -110,3 +111,39 @@ Set up recurring ambient tasks. Note: recurring jobs auto-expire after 3 days.
 ```
 
 **Note**: All cron jobs expire after 3 days. Re-schedule at session start if needed.
+
+## Examples
+
+**Good Garden invocation**:
+```
+/keep:garden
+→ dream_cycle(mode='full'): 5 dupes merged, 2 low-salience pruned
+→ review_queue(staged): 3 observations; user accepts 2, rejects 1
+→ search_synthesis: "loop-engineering" topic confidence 0.4 → re-process
+→ Report: "5 merged, 2 pruned, 3 review decisions, 1 synthesis re-queued"
+```
+
+**Bad Garden invocation**:
+```
+/keep:garden
+→ WRONG: skip review_queue, auto-accept all staged observations
+→ Result: unvetted observations pollute knowledge base
+→ RIGHT: present each staged observation to user with related(id, depth=2) context
+```
+
+**Good Scout report**:
+```
+Branch: main (clean)
+Recent commits: 3 in last hour
+Stale memory: 12 observations not accessed 30+ days
+Pending markers: 4 (incomplete in src/handlers.py:42, blocked-by in tests/...)
+Review queue: 7 staged
+Recommended: run /keep:garden to clear queue
+```
+
+**Bad Scout report**:
+```
+"Everything looks fine."
+→ WRONG: no specifics, no counts, no recommended actions
+→ RIGHT: surface numbers (queue depth, stale count, marker list)
+```

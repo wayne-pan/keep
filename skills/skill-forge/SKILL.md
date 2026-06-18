@@ -1,7 +1,7 @@
 ---
 name: keep:skill-forge
-version: "1.0"
-triggers: ["/keep:create skill", "/keep:new skill", "/keep:save as skill", "/keep:/skill", "/keep:make a skill", "/keep:turn this into a skill", "/keep:remember this pattern", "/keep:save this workflow"]
+version: "1.1"
+triggers: ["/keep:create skill", "/keep:new skill", "/keep:save as skill", "/keep:skill", "/keep:make a skill", "/keep:turn this into a skill", "/keep:remember this pattern", "/keep:save this workflow"]
 routes_to: ["harness"]
 description: >
   Skill auto-creation and patching protocol. TRIGGER when: (1) completing a complex
@@ -43,13 +43,23 @@ After task completion, create if ANY condition is true:
 name: keep:[kebab-case, concise]
 version: "1.0"
 triggers: ["/keep:phrase1", "/keep:phrase2"]
-routes_to: ["dependency-skill"]       # optional
+routes_to: ["dependency-skill"]       # optional, see Frontmatter Semantics
 description: >
   [What it does]. TRIGGER when: [specific scenarios].
   Do NOT trigger for: [exclusion scenarios].
 resources: ['resource1', 'resource2']
 ---
 ```
+
+## Frontmatter Semantics
+
+- **`name`** — `keep:<kebab-case>`. Matches the directory name under `skills/`.
+- **`version`** — Semver string. Bump on structural change to the skill body.
+- **`triggers`** — Slash-command forms only (`/keep:phrase`). Each trigger must be specific enough to not swallow other skills' triggers (no bare `/keep:make`, `/keep:create`, `/keep:write` — use `/keep:make a feature` etc.).
+- **`description`** — One paragraph. Should include `TRIGGER when:` and `Do NOT trigger for:` clauses so the harness can route activation. Auto-trigger skills (empty `triggers:` array, e.g. `cross-review`) are exempt — they fire on lifecycle events, not user invocation. Read by the harness for routing, not the user.
+- **`routes_to`** — **Capability declaration, not recursive invocation.** Lists skills this one *can* hand off to (typically via `routes_to` in the description prose: "use `/keep:review` for X"). It does **not** mean the skill auto-calls them on completion. Mutual `routes_to` (e.g. `sprint ↔ review`) is permitted — it just means each can reference the other, not that they form an infinite loop.
+- **`resources`** — External primitives the skill relies on (`git`, `subagents`, `mind`, `cron`, `worktrees`, `git-diff`, `settings-json`). Listed so the skill can do a resource check at start and degrade gracefully.
+- **`allowed-tools`** — Optional. Restrict which tools the skill may use (e.g. `Bash(browser-use:*)`).
 
 Body sections (in order):
 1. **Title + one-line purpose**

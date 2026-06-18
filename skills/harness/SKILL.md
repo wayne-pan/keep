@@ -1,6 +1,11 @@
 ---
 name: keep:harness
-description: Harness component management. TRIGGER when: modifying hooks, rules, skills, settings.json, install.sh, or evaluating harness architecture. Do NOT trigger for: normal coding tasks, bug fixes in non-harness code, or general questions.
+version: "1.0"
+triggers: ["/keep:harness", "/keep:modify hooks", "/keep:modify rules", "/keep:modify skills", "/keep:evaluate harness", "/keep:settings.json"]
+description: >
+  Harness component management. TRIGGER when: modifying hooks, rules, skills,
+  settings.json, install.sh, or evaluating harness architecture. Do NOT trigger
+  for: normal coding tasks, bug fixes in non-harness code, or general questions.
 resources: ['git', 'settings-json']
 ---
 
@@ -60,3 +65,38 @@ Harness components (hooks, rules, skills) have different expiry speeds across mo
 - Subagents spawning subagents must have a depth limit (max 2 levels)
 - Without guard: exponential context cost, timeout cascades, stale references
 - Pattern: pass `--max-depth N` or check parent context before delegating
+
+## Examples
+
+**Good harness edit** — adding a PreToolUse hook:
+```json
+// settings.json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "command": "~/.claude/hooks/safety-guard.sh" }
+    ]
+  }
+}
+```
+Then test in isolation (`echo 'rm -rf /' | safety-guard.sh` should block) before relying on it.
+
+**Bad harness edit** — adding a rule without removing a stale one:
+```
+// Adding rules/anti-sloppy-code.md while leaving rules/code-style-old.md in place
+// Result: two rules overlap, conflict on edge cases, bloat context on every activation
+```
+Apply pruning criteria first: does the new rule subsume the old? If yes, delete the old.
+
+**Good memory entry** — decision with rationale:
+```
+[0.8] Use wrapper pattern for dry-run flag
+- Context: needed --dry-run without touching core logic
+- Decision: extract run_cmd() wrapper; if/else everywhere rejected
+```
+
+**Bad memory entry** — derivable fact:
+```
+[0.5] Function validate() exists in src/checks.py at line 42
+// Wrong: this is grep-able. Don't store derivable facts in memory.
+```

@@ -1,14 +1,18 @@
 ---
 name: keep:deslop
+version: "1.0"
+triggers: ["/keep:deslop", "/keep:cleanup slop", "/keep:remove boilerplate", "/keep:clean code"]
+description: >
+  Remove AI-generated code slop from recently changed files. TRIGGER when: user says
+  /keep:deslop, "clean up slop", "remove boilerplate", or wants to strip unnecessary
+  comments, defensive checks, wrapper functions, or debug artifacts from recent changes.
+  Do NOT trigger for: general refactoring of untouched code, feature work, or style changes.
 resources: ['git-diff']
 ---
 
 # deslop
 
 Remove AI-generated code slop from recently changed files.
-
-## Trigger
-When the user says `/keep:deslop`, "clean up slop", "/keep:remove boilerplate", or "deslop".
 
 ## Instructions
 
@@ -40,3 +44,46 @@ When the user says `/keep:deslop`, "clean up slop", "/keep:remove boilerplate", 
 - When removing a comment, ensure surrounding code is self-documenting
 - If removal would change behavior, keep the code and note why
 - Maximum 50 lines changed per invocation (avoid mass refactors)
+
+## Examples
+
+**Good removal** — comment restate the obvious:
+```python
+# Before
+counter += 1  # increment counter
+timeout = 5000  # set timeout to 5000
+
+# After
+counter += 1
+timeout = 5000
+```
+
+**Bad removal** — comment explains *why*, must keep:
+```python
+# Before
+timeout = 5000  # below 3s triggers provider rate limit; raised after incident 2024-11
+
+# After (WRONG — context lost)
+timeout = 5000
+```
+
+**Good removal** — redundant defensive check inside same module:
+```typescript
+// Before
+const items = getItems();
+const safe = items || [];  // getItems() always returns array per contract
+
+// After
+const items = getItems();
+```
+
+**Bad removal** — defensive check at system boundary, must keep:
+```typescript
+// Before
+function handler(req: Request) {
+  const body = req.body || {};  // external input — keep guard
+
+// After (WRONG — req.body is untrusted)
+function handler(req: Request) {
+  const body = req.body;
+```

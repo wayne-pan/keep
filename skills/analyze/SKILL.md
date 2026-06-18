@@ -7,7 +7,8 @@ description: >
   Analyze large artifacts using RLM-style chunk+parallel+merge pipeline.
   TRIGGER when: user asks to analyze a large file/codebase/log, or when an artifact
   is too large for single-context processing. Combines KV store, JSON contracts,
-  recursion guard, and token chunking into a complete pipeline.
+  recursion guard, and token chunking into a complete pipeline. Do NOT trigger for:
+  small files (<10k tokens), single-function reads, general code review (use /keep:review).
 resources: ['subagents', 'mind']
 ---
 
@@ -111,3 +112,30 @@ Return JSON: {summary, confidence, findings, deeper_question, status}"
 - Token estimation is approximate (bytes/4) — add 20% safety margin
 - If a chunk sub-agent returns `status: error`, skip it and continue with remaining chunks
 - Never pass raw sub-agent output to user — always synthesize first
+
+## Examples
+
+**Good invocation** — 80k-token log file:
+```
+/keep:analyze production.log
+→ strategy: chunk (token-strategy decides)
+→ 4 chunks × sub-agent analysis
+→ KV store holds 4 results
+→ Merge step dedupes overlapping stack traces
+→ Synthesis: "3 distinct error clusters; root cause: db connection leak at line 412"
+```
+
+**Bad invocation** — 5k-token config file:
+```
+/keep:analyze config.yaml
+→ WRONG: force chunk strategy (no need; fits in single context)
+→ RIGHT: token-strategy returns 'direct', single-pass read + analysis
+```
+
+**Edge case — chunk fails**:
+```
+chunk-2-result: {status: error, summary: "invalid JSON in chunk"}
+→ Skip chunk 2, continue with chunks 1, 3, 4
+→ Synthesis notes: "1 of 4 chunks skipped (parse error); findings cover 75% of artifact"
+→ Never silently drop — surface the gap to user
+```

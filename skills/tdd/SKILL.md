@@ -1,6 +1,6 @@
 ---
 name: keep:tdd
-version: "1.0"
+version: "1.2"
 triggers: ["/keep:tdd", "/keep:test-driven", "/keep:red-green-refactor", "/keep:test first", "/keep:write tests first"]
 description: >
   Test-driven development with red-green-refactor loop. TRIGGER when: user wants to
@@ -12,15 +12,13 @@ resources: ['subagents']
 
 # Test-Driven Development
 
-## Philosophy
-
 **Core principle**: Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't.
 
-**Good tests** are integration-style: they exercise real code paths through public APIs. They describe _what_ the system does, not _how_ it does it. A good test reads like a specification. These tests survive refactors because they don't care about internal structure.
+**Good tests** are integration-style — they exercise real code paths through public APIs, read like specifications, survive refactors.
 
-**Bad tests** are coupled to implementation. They mock internal collaborators, test private methods, or verify through external means. Warning sign: your test breaks when you refactor, but behavior hasn't changed.
+**Bad tests** are coupled to implementation. Warning sign: test breaks when you refactor, but behavior hasn't changed.
 
-Uses the vocabulary from [rules/architecture-language.md](../../rules/architecture-language.md) — **module**, **interface**, **seam**, **adapter**, **depth**, **leverage**, **locality**.
+Uses vocabulary from `rules/architecture-language.md`: module, interface, seam, adapter, depth, leverage, locality.
 
 ## Anti-Pattern: Horizontal Slices
 
@@ -31,7 +29,7 @@ Uses the vocabulary from [rules/architecture-language.md](../../rules/architectu
 - Tests become insensitive to real changes
 - You outrun your headlights, committing to test structure before understanding the implementation
 
-**Correct approach**: Vertical slices via tracer bullets. One test -> one implementation -> repeat.
+**Correct approach**: Vertical slices via tracer bullets. One test → one implementation → repeat.
 
 ```
 WRONG (horizontal):
@@ -39,17 +37,14 @@ WRONG (horizontal):
   GREEN: impl1, impl2, impl3, impl4, impl5
 
 RIGHT (vertical):
-  RED->GREEN: test1->impl1
-  RED->GREEN: test2->impl2
-  RED->GREEN: test3->impl3
+  RED→GREEN: test1→impl1
+  RED→GREEN: test2→impl2
   ...
 ```
 
 ## Workflow
 
 ### 1. Planning
-
-Before writing any code:
 
 - [ ] Confirm with user what interface changes are needed
 - [ ] Confirm which behaviors to test (prioritize — you can't test everything)
@@ -65,8 +60,8 @@ Ask: "What should the public interface look like? Which behaviors are most impor
 Write ONE test that confirms ONE thing about the system:
 
 ```
-RED:   Write test for first behavior -> test fails
-GREEN: Write minimal code to pass -> test passes
+RED:   Write test for first behavior → test fails
+GREEN: Write minimal code to pass → test passes
 ```
 
 This is your tracer bullet — proves the path works end-to-end.
@@ -76,8 +71,8 @@ This is your tracer bullet — proves the path works end-to-end.
 For each remaining behavior:
 
 ```
-RED:   Write next test -> fails
-GREEN: Minimal code to pass -> passes
+RED:   Write next test → fails
+GREEN: Minimal code to pass → passes
 ```
 
 Rules:
@@ -111,18 +106,6 @@ Mock at **system boundaries** only:
 
 **Designing for mockability**: Pass external dependencies in (dependency injection), not created internally. Prefer SDK-style interfaces (specific functions per operation) over generic fetchers.
 
-## Deep Modules in TDD
-
-A **deep module** has a small interface hiding significant complexity. A **shallow module** has a large interface with thin implementation.
-
-When designing test interfaces:
-
-- Can I reduce the number of methods?
-- Can I simplify the parameters?
-- Can I hide more complexity inside?
-
-The **deletion test**: imagine deleting the module. If complexity reappears across N callers, the module was earning its keep. If complexity vanishes, it was a pass-through.
-
 ## Checklist Per Cycle
 
 ```
@@ -132,6 +115,18 @@ The **deletion test**: imagine deleting the module. If complexity reappears acro
 [ ] Code is minimal for this test
 [ ] No speculative features added
 ```
+
+## Deep Modules in TDD
+
+A **deep module** has a small interface hiding significant complexity. A **shallow module** has a large interface with thin implementation.
+
+When designing test interfaces, ask:
+
+- Can I reduce the number of methods?
+- Can I simplify the parameters?
+- Can I hide more complexity inside?
+
+The **deletion test**: imagine deleting the module. If complexity reappears across N callers, the module was earning its keep. If complexity vanishes, it was a pass-through.
 
 ## Seam Discipline
 
