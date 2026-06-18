@@ -16,8 +16,16 @@ if [[ "$CMD" != *"git commit"* ]]; then
   exit 0
 fi
 
-# Get staged diff
-DIFF=$(git diff --cached 2>/dev/null) || exit 0
+# Get staged files, excluding markdown (docs legitimately discuss TODO/FIXME)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -v '\.md$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+  # Only markdown (or nothing) staged — skip the marker check
+  exit 0
+fi
+
+# Get staged diff for non-markdown files only
+DIFF=$(git diff --cached -- $STAGED_FILES 2>/dev/null) || exit 0
 
 if [ -z "$DIFF" ]; then
   exit 0
