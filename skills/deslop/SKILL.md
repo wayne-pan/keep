@@ -12,8 +12,6 @@ resources: ['git-diff']
 
 # deslop
 
-Remove AI-generated code slop from recently changed files.
-
 ## Instructions
 
 1. Find recently modified files (use `git diff --name-only HEAD~1` or check working tree changes)

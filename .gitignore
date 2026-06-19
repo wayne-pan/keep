@@ -5,8 +5,11 @@ __pycache__/
 *.pyo
 learnings.jsonl
 
-# Benchmark data
+# Working-state (review/audit artifacts, not production)
 .sprint/
+.audit/
+
+# Benchmark data
 codedb.snapshot
 
 # Code intelligence index

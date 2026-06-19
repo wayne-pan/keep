@@ -14,8 +14,6 @@ resources: ['subagents', 'mind']
 
 # Analyze Large Artifact
 
-RLM-shaped pipeline for processing artifacts that exceed single-context capacity.
-
 ## Pipeline
 
 ### Step 1: Estimate & Strategy

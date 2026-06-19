@@ -97,7 +97,7 @@ Process the highest-salience staged observation.
 
 ## CronCreate Scheduling Templates
 
-Set up recurring ambient tasks. Note: recurring jobs auto-expire after 3 days.
+Set up recurring ambient tasks.
 
 ```bash
 # Garden: daily memory maintenance
@@ -110,7 +110,11 @@ Set up recurring ambient tasks. Note: recurring jobs auto-expire after 3 days.
 /keep:ambient → CronCreate: "*/30 * * * *" (every 30 min)
 ```
 
-**Note**: All cron jobs expire after 3 days. Re-schedule at session start if needed.
+## Memory Hygiene (load-bearing for this skill)
+
+**Index cap.** mind index files must stay under 200 lines / 25KB — exceeding this makes memory a liability (more tokens wasted than value returned). Split large indexes into topic-specific files; enforce cap via `dream_cycle(prune)`.
+
+**Derivable content never stored.** Never store in memory what can be derived from code (function signatures, file lists, type definitions). Memory is for decisions, corrections, preferences — not for searchable facts. Test: "Can I get this from `grep` or `smart_search`?" → If yes, don't store it.
 
 ## Examples
 

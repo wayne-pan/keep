@@ -6,16 +6,16 @@ routes_to: ["review"]
 description: >
   Full sprint workflow orchestration. TRIGGER when: the user asks to build a feature,
   run a sprint, ship something, implement, create a new module, add a feature, or says
-  /keep:sprint. Runs the complete Research → Plan → Implement cycle using Claude Code
-  subagents for parallel execution. Do NOT trigger for: quick questions, single-file
-  edits, research tasks, or skill creation (use /keep:skill-forge).
+  /keep:sprint. Runs the complete Research → Plan → Implement → Quality Gate → Review
+  → Test → Ship → Reflect cycle using Claude Code subagents for parallel execution.
+  Do NOT trigger for: quick questions, single-file edits, research tasks, or skill
+  creation (use /keep:skill-forge).
 resources: ['git', 'subagents', 'mind', 'architecture-language']
 ---
 
 # Sprint Workflow (RPI)
 
-Structured development sprint: Research → Plan → Implement → Verify → Ship → Reflect.
-**Compress context at every phase boundary to stay in the smart zone.**
+Structured development sprint: Research → Plan → Implement → Quality Gate → Review → Test → Ship → Reflect.
 
 ## Phase Map
 
@@ -67,7 +67,7 @@ Multi-stage. Each stage must pass before next. Failure → back to Implement.
 | Test | `make test` or `npm test` (auto-detect) |
 | Lint | `npm run lint` or project linter |
 
-Checkpoint: `sprint-checkpoint save quality-gate <stage>` at each stage boundary.
+Checkpoint: `sprint-checkpoint save quality-gate <stage>` at each stage transition.
 
 ## Phase Guards
 
@@ -107,12 +107,12 @@ Uses vocabulary from `rules/architecture-language.md`: module, interface, seam, 
 | `DECISIONS.md` | Architecture decisions + rationale |
 | `KNOWLEDGE.md` | Project knowledge (append-only, cross-sprint) |
 | `FINDINGS.md` | Cross-session insights (append-only, cross-sprint) |
-| `CHECKPOINT.yaml` | Phase boundary checkpoint |
+| `CHECKPOINT.yaml` | Phase transition checkpoint |
 
 Lifecycle: create at Research start → update every phase → delete at Ship (preserve KNOWLEDGE.md, FINDINGS.md).
 
 ```bash
-sprint-checkpoint save <phase> <step>     # at each phase boundary
+sprint-checkpoint save <phase> <step>     # at each phase transition
 sprint-checkpoint resume                  # on sprint start
 ```
 
@@ -125,7 +125,7 @@ KV store: `kv-set`/`kv-get` shares artifacts between subagents; `kv-clear` at co
 - **Two same-type failures** → STOP, ask user
 - **Loop pattern** (A→B→A→B) → STOP, present diagnosis
 
-**Cooperative Stop Event**: `safety-guard.sh` writes `/tmp/keep-stop-{SESSION_ID}` on CRITICAL violations. Check at each phase boundary (30s grace for running subagents):
+**Cooperative Stop Event**: `safety-guard.sh` writes `/tmp/keep-stop-{SESSION_ID}` on CRITICAL violations. Check at each phase transition (30s grace for running subagents):
 
 ```bash
 SESSION_ID=$(cat .sprint/SESSION_ID 2>/dev/null || echo "default")
@@ -133,6 +133,8 @@ SESSION_ID=$(cat .sprint/SESSION_ID 2>/dev/null || echo "default")
 ```
 
 **Stuck detection** (track `recent_actions` in STATE.yaml): same error 2+ times → `.sprint/STUCK.md`, try alternative. Loop pattern → stop. No progress after 3 iterations → suggest fresh context.
+
+**Fork recursion guard.** Subagents spawning subagents must have a depth limit (max 2 levels). Without guard: exponential context cost, timeout cascades, stale references. Pattern: pass `--max-depth N` or check parent context before delegating.
 
 ## References
 

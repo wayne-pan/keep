@@ -10,8 +10,6 @@ description: >
 
 # Onboard — First-Run Personalization Wizard
 
-TRIGGER when: user says /keep:onboard, first session, or asks to set up preferences.
-
 ## Steps
 
 1. **Check flag**: If `~/.claude/mem/onboarded` exists, say "Already onboarded. Edit ~/.claude/rules/personal.md to update preferences." and stop.

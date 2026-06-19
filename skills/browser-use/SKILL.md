@@ -89,22 +89,17 @@ browser-use eval "js code"
 - **Browser won't start?** `browser-use close` then `browser-use --headed open <url>`
 - **Element not found?** `browser-use scroll down` then `browser-use state`
 - **Session disconnected?** `browser-use close && browser-use open <url>` (daemon auto-restarts)
-- **Daemon unresponsive?** `pkill -f browser-use; sleep 1; browser-use open <url>`
+- **Daemon hangs / unresponsive?** `browser-use close` → `open`; if close hangs, `pkill -f browser-use; sleep 1; browser-use open <url>`
+- **CAPTCHA / login walls?** Detect (unexpected URL change, missing elements), inform user, **do not loop** on blocked pages
+- **Memory leaks in long sessions?** Restart every 20-30 commands (`browser-use close && browser-use open <url>`)
+- **Stale element indices?** Re-run `browser-use state` after any navigation before clicking/typing
 - **Run diagnostics:** `browser-use doctor`
 
 ## Tips
 
 1. **Always run `state` first** to see available elements and their indices
 2. **Use `--headed` for debugging** to see what the browser is doing
-3. **Sessions persist** — browser stays open between commands
-4. **Restart every 20-30 commands** in long workflows (memory leak mitigation)
-
-## Gotchas (operational hazards — hit mid-session)
-
-- **Daemon hangs**: `browser-use close` → `open`; if close hangs, `pkill -f browser-use` last resort.
-- **CAPTCHA/login walls**: detect (unexpected URL change, missing elements), inform user, **do not loop** on blocked pages.
-- **Memory leaks**: long sessions accumulate DOM nodes — restart every 20-30 commands.
-- **Stale element indices**: after any navigation, re-run `browser-use state` before clicking/typing.
+3. **Restart every 20-30 commands** in long workflows (memory leak mitigation)
 
 Full detail in `references/advanced.md`.
 

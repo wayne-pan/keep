@@ -48,13 +48,6 @@ detect_agent() {
 
 **Canonical data location**: `~/.local/share/keep/scripts/pricing.json` — single source of truth. Claude Code's `~/.claude/scripts/pricing.json` is a symlink to this file.
 
-## Triggers
-
-- `/keep:statusline` or `/keep:statusline:setup` — Configure statusline
-- `/keep:statusline:pricing` — View/manage model pricing
-- `/keep:statusline:status` — Check statusline health
-- `/keep:statusline:remove` — Remove statusline
-
 ## `/keep:statusline:setup`
 
 Run `detect_agent` first, branch based on result. Then 5 steps:

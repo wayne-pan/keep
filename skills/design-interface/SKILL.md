@@ -84,7 +84,7 @@ Present designs sequentially so the user can absorb each one. Then compare them 
 - **Seam placement** (where adapters live)
 - **Testability** (how tests cross the interface)
 
-After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. **Be opinionated** — the user wants a strong read, not a menu.
+After comparing, **be opinionated** — recommend which design is strongest and why, or propose a hybrid. The user wants a strong read, not a menu.
 
 ### 5. Synthesize
 

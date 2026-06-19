@@ -137,5 +137,3 @@ The **deletion test**: imagine deleting the module. If complexity reappears acro
 
 - Old unit tests on shallow modules become waste once tests at the deepened module's interface exist — delete them.
 - Write new tests at the deepened module's interface. The **interface is the test surface**.
-- Tests assert on observable outcomes through the interface, not internal state.
-- Tests should survive internal refactors — they describe behaviour, not implementation.

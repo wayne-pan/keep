@@ -14,8 +14,6 @@ resources: ['git-diff', 'subagents', 'mind']
 
 # Cross-Validation Review
 
-Independent code review from multiple subagent perspectives, synthesized into actionable findings.
-
 ## Protocol
 
 ### Step 1: Gather Changes

@@ -6,6 +6,7 @@ description: >
   After completing a Complex task (3+ files OR design OR >50 lines), detect other
   available agents on this machine and offer cross-agent review. Auto-triggered by
   core.md's Complex task completion flow.
+resources: ['mind']
 ---
 
 # Cross-Agent Review

@@ -19,7 +19,7 @@ resources: ['subagents', 'worktrees', 'cron', 'mind']
 
 One floor above the harness. Compose existing primitives into the five moves — Discovery, Handoff, Verification, Persistence, Scheduling — with the evaluator as the load-bearing part and budget as the hard ceiling.
 
-**Core principle: orchestrate, don't reimplement.** All six parts (Automations, Worktrees, Skills, Connectors, Sub-agents, Memory) already exist as keep primitives. This skill wires them. If you are writing a new worktree/cron/memory/sub-agent shim, stop.
+**If you are writing a new worktree/cron/memory/sub-agent shim, stop.** All six parts (Automations, Worktrees, Skills, Connectors, Sub-agents, Memory) already exist as keep primitives; this skill wires them.
 
 **Syntax note.** `Agent(model=..., subagent_type=...)` and `EnterWorktree(...)` are Claude Code tool invocations. On other harnesses (Codex, OpenCode) the same primitives exist under different syntax — adapt the call site, the orchestration shape is portable.
 
@@ -120,4 +120,3 @@ Default recommendation: `[persistence]`. Empty list is allowed only if the user 
 - `references/moves.md` — Move 1–5 execution detail, halt conditions, ESCALATE handling
 - `references/evaluator.md` — evaluator construction, three tiers, maker-checker, verbatim prompt template
 - `rules/loop-engineering.md` — vocabulary and principles for the loop layer
-- §03–§09 references throughout point to the Loop Engineering orange-book (花叔, v260615) — an **external** document, not committed to this repo. The framework stands on its own; the §-markers are breadcrumbs to the original.

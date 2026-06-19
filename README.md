@@ -51,7 +51,7 @@ keep/
 │   ├── search/             # FTS5 + recall engine
 │   └── dream/              # Memory maintenance cycle (dedup, merge, prune, strengthen)
 ├── hooks/                  # 28 Claude Code hooks (bash)
-├── skills/                 # 14 skill workflows
+├── skills/                 # 24 skill workflows
 ├── scripts/                # Installer, model switcher, benchmarks
 └── rules/                  # Behavioral rules
 ```
@@ -82,22 +82,34 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 
 ### Skills
 
+Ordered by the main engineering flow (align → build → verify → fix). Run `/keep:route` when unsure which applies.
+
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
-| `/keep:sprint` | "build a feature", "implement" | Full Research → Plan → Implement → Review → Test → Ship cycle |
-| `/keep:review` | "code review", "audit" | Multi-agent cross-validation (bug hunter + security + adversarial + evaluator) |
-| `/keep:analyze` | "analyze artifact" | RLM-style chunk+parallel+merge for large files |
-| `/keep:deslop` | "/keep:deslop" | Remove code redundancy and over-engineering |
-| `/keep:onboard` | "/keep:onboard" | First-run personalization wizard |
-| `/keep:statusline` | "/keep:statusline:setup" | Token/cost/context status bar |
+| `/keep:route` | "which skill", "help me choose" | Router — index every skill, point at the right one |
+| `/keep:grilling` | "grill me", "align before coding" | Pre-coding alignment interview — one question at a time, each with a recommendation |
+| `/keep:to-prd` | "write a PRD", "synthesize prd" | Turn locked plan into a published PRD (no interview) |
+| `/keep:to-issues` | "break into issues", "vertical slices" | Decompose PRD into agent-ready vertical slices |
+| `/keep:triage` | "triage inbox", "sort issues" | Move external-sourced issues through a state machine (raw → done) |
+| `/keep:teach` | "teach me", "walk me through" | Multi-session teaching with spaced repetition; learner profile in memory |
+| `/keep:sprint` | "build a feature", "implement" | Full Research → Plan → Implement → Quality Gate → Review → Test → Ship → Reflect cycle |
+| `/keep:design-interface` | "/keep:design-interface" | Deep module interface design with seam analysis (Design It Twice) |
 | `/keep:tdd` | "/keep:tdd" | Test-driven development workflow (red → green → refactor) |
-| `/keep:design-interface` | "/keep:design-interface" | Deep module interface design with seam analysis |
+| `/keep:review` | "code review", "audit" | Multi-agent cross-validation (bug hunter + security + adversarial + evaluator) |
+| `/keep:deslop` | "/keep:deslop" | Remove code redundancy and over-engineering |
+| `/keep:diagnosing-bugs` | "why is this broken", "debug" | Six-phase debug loop — tight red loop is a hard gate before hypothesising |
+| `/keep:architecture-scan` | "find shallow modules", "ball of mud" | Scan codebase for deepening opportunities, ranked report |
+| `/keep:prototype` | "spike this", "throwaway" | Disposable prototype in worktree — code answers design questions faster than prose |
+| `/keep:handoff` | "pass this off", "wrap up session" | Cross-session handoff doc with suggested next skills |
+| `/keep:analyze` | "analyze artifact" | RLM-style chunk+parallel+merge for large files |
+| `/keep:ubiquitous-language` | "/keep:ubiquitous-language" | Shared vocabulary management (inline + batch modes) |
 | `/keep:browser-use` | "/keep:browser-use" | Headless browser automation with domain knowledge |
 | `/keep:ambient` | "/keep:ambient" | Background context awareness and monitoring |
-| `/keep:ubiquitous-language` | "/keep:ubiquitous-language" | Shared vocabulary management |
 | `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
-| `/keep:harness` | Component changes | Manage keep's own configuration |
 | `/keep:loop` | "set up a loop", "run unattended" | Loop Engineering — five-move automated loop with evaluator gate |
+| `/keep:harness` | Module changes | Manage keep's own configuration |
+| `/keep:onboard` | "/keep:onboard" | First-run personalization wizard |
+| `/keep:statusline` | "/keep:statusline:setup" | Token/cost/context status bar |
 
 ### Model Switcher (mx)
 

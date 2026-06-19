@@ -67,7 +67,17 @@ Enforcement: safety-guard.sh blocks destructive patterns. This tier is advisory.
 - Preserve: decisions, task goals, errors, modified files, identifiers. Compress: research, tool output, reasoning.
 
 ### Session Resume
-On session start: `wakeup(project)` → `search("session-checkpoint", project=project)` → present branch/dirty/modified to user. Checkpoints are append-only.
+On session start, run four steps in order:
+
+1. `wakeup(project)` — load synthesis + recent observations into context.
+2. `search("session-checkpoint", project=project)` — pull the most recent checkpoint. Checkpoints are append-only.
+3. Handoff check: `ls -t "${TMPDIR:-/tmp}"/keep-handoff-*.md 2>/dev/null | head -1`. If a handoff file exists, read it before presenting — it carries in-flight work, suggested next skills, and decisions not to re-litigate. The handoff is a fork (one-shot), not state — delete or archive it after consuming.
+4. Present to user: current branch, dirty files, modified files since last session, and (if handoff was found) the top 1-3 next moves with their suggested skills.
+
+Three sources, three roles — don't conflate them:
+- `wakeup` reloads memory **state** (synthesis, decisions, observations).
+- `session-checkpoint` captures the **previous session's tail** (decisions, modified files, identifiers).
+- `keep-handoff-*.md` carries **conscious handoff intent** (next moves, suggested skills, open questions) — present only when the previous session explicitly handed off, not every resume.
 
 ### Bash
 - Every cmd: check exit code, scan stderr
