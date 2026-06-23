@@ -146,6 +146,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# ── Early LOCAL_BIN/PATH setup (needed for --adapter mode, which exits before Phase 1) ──
+mkdir -p "$LOCAL_BIN"
+export PATH="$LOCAL_BIN:$PATH"
+
 # ── Adapter mode: configure mind+codedb MCP for a specific AI tool ──
 
 if [ -n "$ADAPTER" ]; then
@@ -266,10 +270,6 @@ else
 fi
 printf "${CYAN}  Source: %s${NC}\n" "$PROJECT_DIR"
 echo ""
-
-# ── Common setup ──
-mkdir -p "$LOCAL_BIN"
-export PATH="$LOCAL_BIN:$PATH"
 
 # ================================================================
 # mx Installation (shared by both modes)
@@ -411,6 +411,24 @@ install_system_deps() {
 install_system_deps
 ok "System dependencies"
 ok "$LOCAL_BIN created"
+
+# ── ugrep — required by ~/.bashrc grep/fgrep/egrep aliases (system dependency) ──
+install_ugrep() {
+  if command -v ugrep &>/dev/null; then
+    ok "ugrep (already installed)"
+    return
+  fi
+  info "Installing ugrep..."
+  case "$PLATFORM" in
+    ubuntu)        sudo apt-get install -y -qq ugrep 2>/dev/null || warn "ugrep: apt install failed, skipping" ;;
+    fedora)        sudo dnf install -y ugrep 2>/dev/null || warn "ugrep: dnf install failed, skipping" ;;
+    arch)          sudo pacman -Sy --noconfirm --needed ugrep 2>/dev/null || warn "ugrep: pacman install failed, skipping" ;;
+    macos)         brew install ugrep 2>/dev/null || warn "ugrep: brew install failed, skipping" ;;
+    linux-generic) warn "ugrep: unknown distro, install manually (apt/dnf/pacman install ugrep)" ;;
+  esac
+  command -v ugrep &>/dev/null && ok "ugrep" || warn "ugrep not available"
+}
+install_ugrep
 
 # ================================================================
 # Phase 2: Claude Code + mx + NTO
