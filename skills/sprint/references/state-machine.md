@@ -2,7 +2,35 @@
 
 All sprint state lives on disk in `.sprint/`. Context compaction is safe — state survives in files, not memory. This is inspired by GSD-2's disk-driven architecture where the filesystem is the source of truth.
 
-## State Files
+Plan artifacts (PLAN.md, task briefs, reports, review packages) live in a **session temp dir**, not the project tree. The temp dir path is anchored in `.sprint/PLAN_TMP_PATH` so sibling commands rediscover it after `cd` shifts or context compaction.
+
+## Two Locations, Two Lifecycles
+
+| Location | Holds | Lifecycle |
+|----------|-------|-----------|
+| `.sprint/` (project) | Phase state, decisions, knowledge, anchor | Created at Research start, deleted at Ship (preserve KNOWLEDGE/FINDINGS) |
+| Temp dir (cross-platform) | PLAN.md + per-task briefs/reports + review packages | Created at Plan start via `sprint-plan init`, cleared at Ship via `sprint-plan clear` |
+
+## Cross-Platform Temp Dir Resolution
+
+`sprint-plan.sh` honors this precedence chain:
+
+```
+KEEP_SPRINT_TMP  >  TMPDIR  >  TEMP  >  TMP  >  /tmp
+```
+
+| Platform | What happens |
+|----------|-------------|
+| Linux | `$TMPDIR` set (or `/tmp`) — native |
+| macOS | `$TMPDIR` set by launchd to `/var/folders/.../T/` — native |
+| Windows native bash | `TMPDIR` unset; `$TEMP`/`$TMP` point to `%USERPROFILE%\AppData\Local\Temp` — picked up |
+| Git Bash / MSYS2 | Both `/tmp` (mapped) and `$TEMP` work; chain prefers env vars |
+| Cygwin | `$TMPDIR` usually set; falls through to `/tmp` |
+| WSL | Native Linux semantics |
+
+The chosen path is resolved once at `sprint-plan init` and stored as an absolute path in `.sprint/PLAN_TMP_PATH`. Subsequent commands read the anchor — so later env changes or `cd` shifts don't break the path.
+
+## State Files (`.sprint/`)
 
 | File | Purpose | Updated by |
 |------|---------|-----------|
@@ -15,6 +43,16 @@ All sprint state lives on disk in `.sprint/`. Context compaction is safe — sta
 | `TRIPLETS.jsonl` | Structured test triplets (state, action, reward) for regression tracking | Test phase |
 | `CHECKPOINT.yaml` | Phase boundary checkpoint (see schema below) | Each phase boundary |
 | `STUCK.md` | Stuck detection diagnosis | When stuck detected |
+| `PLAN_TMP_PATH` | Anchor: absolute path to the session's temp plan dir | `sprint-plan init` / `sprint-plan clear` |
+
+## Plan Artifacts (temp dir)
+
+| File | Purpose | Written by |
+|------|---------|-----------|
+| `PLAN.md` | Structured implementation plan (Phase 2 output) | `sprint-plan write-plan` (Plan phase) |
+| `task-N-brief.md` | Per-task slice consumed by implementer subagents | `sprint-plan task-brief <N>` (before each dispatch) |
+| `task-N-report.md` | Per-task implementer report (status, commits, test summary, concerns) | Implementer subagent |
+| `review-<BASE>-<HEAD>.md` | Diff package (commits + stat + unified diff) for reviewer subagents | `sprint-plan review-package <BASE> <HEAD>` |
 
 ## STATE.yaml Schema
 
@@ -115,6 +153,7 @@ Append-only — never delete, only add. This accumulates project knowledge acros
 ### Cleanup
 - Delete `.sprint/` directory at Ship phase completion (after Reflect)
 - KNOWLEDGE.md and FINDINGS.md may be preserved in project root if valuable
+- Clear temp plan dir: `sprint-plan clear` (removes PLAN.md, all briefs, reports, review packages, and the `.sprint/PLAN_TMP_PATH` anchor)
 
 ## CHECKPOINT.yaml Schema
 

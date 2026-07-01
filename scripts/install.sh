@@ -933,7 +933,7 @@ done
 
 # ── Utility Scripts (KV store, recursion guard, token chunker, etc.) ──
 mkdir -p "$CLAUDE_DIR/scripts"
-for script in kv-store.sh recursion-guard.sh token-chunk.sh hash-snapshot.sh nonce-wrap.sh sprint-checkpoint.sh classify-observation.sh; do
+for script in kv-store.sh recursion-guard.sh token-chunk.sh hash-snapshot.sh nonce-wrap.sh sprint-checkpoint.sh sprint-plan.sh classify-observation.sh; do
   if [ -f "$PROJECT_DIR/scripts/$script" ]; then
     deploy_file "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script" --chmod +x
     ok "script: $script"

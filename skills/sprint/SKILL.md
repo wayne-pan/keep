@@ -1,6 +1,6 @@
 ---
 name: keep:sprint
-version: "1.3"
+version: "1.4"
 triggers: ["/keep:sprint", "/keep:build feature", "/keep:ship feature", "/keep:implement feature", "/keep:add feature", "/keep:new module"]
 routes_to: ["review"]
 description: >
@@ -22,7 +22,7 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 | # | Phase | Done when | Detail |
 |---|-------|-----------|--------|
 | 1 | Research | Findings in `.sprint/RESEARCH.md`, gaps documented | `references/context-engineering.md` |
-| 2 | Plan | Files listed with line ranges; user approves plan | Design It Twice below |
+| 2 | Plan | Structured `PLAN.md` written to temp dir (Task/Step/Interfaces); user approves | Design It Twice + Plan Document below |
 | 3 | Implement | All planned modules pass validation ladder | `references/validation-ladder.md`, `references/subagent-strategy.md` |
 | 4 | Quality Gate | Format → Build → Test → Lint all pass | table below |
 | 5 | Review | `/keep:review` findings addressed or deferred | `/keep:review` skill |
@@ -74,7 +74,7 @@ Checkpoint: `sprint-checkpoint save quality-gate <stage>` at each stage transiti
 Before entering next phase, verify:
 
 - **Research→Plan**: critical files read; unknowns documented; RESEARCH.md written
-- **Plan→Implement**: user approved plan; target files listed with line ranges; test plan defined; confidence levels assigned; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
+- **Plan→Implement**: user approved the written PLAN.md; every task has Files / Interfaces / Steps; test plan defined; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
 - **Implement→Review**: Quality Gate passed; no incomplete markers in changed code; validation ladder passed for every file
 - **Review→Test**: review findings addressed; no unresolved critical/high severity issues
 
@@ -96,24 +96,98 @@ Spawn 3 parallel sub-agents with constraints: (1) minimize interface — 1-3 ent
 
 Uses vocabulary from `rules/architecture-language.md`: module, interface, seam, adapter, depth, leverage, locality.
 
+## Plan Document (Phase 2 output)
+
+After Design It Twice, write a structured PLAN.md to the **temp dir** (never the project tree — keeps git status clean). Plan artifacts are session-scoped and disposable.
+
+```bash
+# One-time per sprint: create session plan dir + anchor
+sprint-plan init
+
+# Write PLAN.md from your drafted content
+sprint-plan write-plan << 'EOF'
+<structured plan content>
+EOF
+```
+
+**PLAN.md structure:**
+
+```markdown
+# <Feature> Implementation Plan
+
+**Goal:** <one sentence>
+**Architecture:** <2-3 sentences>
+**Tech Stack:** <key libs/versions>
+
+## Global Constraints
+- <verbatim from spec — version floors, naming rules, platform requirements>
+
+## Task 1: <component>
+
+**Files:**
+- Create: `exact/path/to/file.py`
+- Modify: `exact/path/existing.py:123-145`
+- Test: `tests/exact/path/test.py`
+
+**Interfaces:**
+- Consumes: <exact signatures from earlier tasks>
+- Produces: <exact signatures later tasks rely on>
+
+**Steps:**
+- [ ] Write failing test (paste actual code)
+- [ ] Run `pytest tests/path/test.py::test_name -v`, expect FAIL
+- [ ] Implement minimal code (paste actual code)
+- [ ] Run `pytest tests/path/test.py::test_name -v`, expect PASS
+- [ ] Commit: `git commit -m "feat: ..."`
+
+## Task 2: <component>
+...
+```
+
+**Rules:**
+- **No placeholders.** Every step shows actual code or commands. "TBD" / "implement later" / "similar to Task N" = plan failure.
+- **Exact file paths with line ranges** for modifications.
+- **Consumes/Produces blocks** are how downstream task subagents learn upstream signatures — they only read their own brief, not the full PLAN.md.
+- **Self-review before approval**: scan for placeholder patterns, verify each spec requirement maps to a task, check type consistency across tasks.
+
+**Approval gate**: present the written PLAN.md path to the user; do not enter Implement until they approve.
+
+**Cross-platform temp dir**: `sprint-plan` honors `KEEP_SPRINT_TMP > TMPDIR > TEMP > TMP > /tmp` — works on Linux, macOS, Windows-native bash, Git Bash, Cygwin. The chosen path is anchored in `.sprint/PLAN_TMP_PATH` so sibling commands rediscover it after `cd` shifts.
+
+**Cleanup**: `sprint-plan clear` at Ship phase (after Reflect). Removes the temp dir + anchor file.
+
 ## State Management (Disk-Driven)
 
-`.sprint/` is the source of truth — context compaction is safe. Full schemas and lifecycle: `references/state-machine.md`.
+Two distinct locations, two distinct lifecycles — don't conflate them:
 
-| File | Purpose |
-|------|---------|
-| `STATE.yaml` | Phase, progress, recent actions |
-| `RESEARCH.md` | Compressed research findings |
-| `DECISIONS.md` | Architecture decisions + rationale |
-| `KNOWLEDGE.md` | Project knowledge (append-only, cross-sprint) |
-| `FINDINGS.md` | Cross-session insights (append-only, cross-sprint) |
-| `CHECKPOINT.yaml` | Phase transition checkpoint |
+| Location | Purpose | Lifecycle |
+|----------|---------|-----------|
+| `.sprint/` (project) | Phase state, decisions, knowledge | Per-sprint, deleted at Ship (preserve KNOWLEDGE/FINDINGS) |
+| Temp dir (`sprint-plan path`) | PLAN.md, task briefs, reports, review packages | Per-sprint, cleared at Ship |
 
-Lifecycle: create at Research start → update every phase → delete at Ship (preserve KNOWLEDGE.md, FINDINGS.md).
+`.sprint/` is the source of truth for **state** — context compaction is safe. The temp dir holds **plan artifacts** that subagents consume as files (not pasted text). Full schemas and lifecycle: `references/state-machine.md`.
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `STATE.yaml` | `.sprint/` | Phase, progress, recent actions |
+| `RESEARCH.md` | `.sprint/` | Compressed research findings |
+| `DECISIONS.md` | `.sprint/` | Architecture decisions + rationale |
+| `KNOWLEDGE.md` | `.sprint/` | Project knowledge (append-only, cross-sprint) |
+| `FINDINGS.md` | `.sprint/` | Cross-session insights (append-only, cross-sprint) |
+| `CHECKPOINT.yaml` | `.sprint/` | Phase transition checkpoint |
+| `PLAN_TMP_PATH` | `.sprint/` | Anchor: absolute path to session's temp plan dir |
+| `PLAN.md` | temp dir | Structured implementation plan (Phase 2 output) |
+| `task-N-brief.md` | temp dir | Per-task slice subagents read instead of full plan |
+| `task-N-report.md` | temp dir | Per-task implementer report |
+| `review-*.md` | temp dir | Diff packages for reviewer subagents |
 
 ```bash
 sprint-checkpoint save <phase> <step>     # at each phase transition
 sprint-checkpoint resume                  # on sprint start
+sprint-plan init                          # at Plan phase start
+sprint-plan write-plan << 'EOF' ... EOF   # after Design It Twice
+sprint-plan task-brief <N>                # before dispatching task N implementer
+sprint-plan clear                         # at Ship phase (after Reflect)
 ```
 
 KV store: `kv-set`/`kv-get` shares artifacts between subagents; `kv-clear` at completion.
