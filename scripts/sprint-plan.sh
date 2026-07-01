@@ -120,6 +120,35 @@ case "$cmd" in
     echo "$target_dir/PLAN.md"
     ;;
 
+  tasks)
+    target_dir="$(resolve_plan_dir)"
+    plan="$target_dir/PLAN.md"
+    need_plan_file "$plan"
+    # Scan for `## Task N` headings; emit `n\ttitle`. BSD-awk compatible —
+    # no gawk match($0, /pat/, arr); use sub() + index-friendly split.
+    tasks_out=$(awk '
+      /^##[[:space:]]*Task[[:space:]]*[0-9]+/ {
+        line = $0
+        sub(/^##[[:space:]]*Task[[:space:]]*/, "", line)
+        n = line; sub(/[/:.].*$/, "", n); sub(/[[:space:]].*$/, "", n)
+        title = line
+        # strip leading "N[:.][space]" prefix to get just the title
+        sub(/^[0-9]+[:.]?[[:space:]]*/, "", title)
+        print n "\t" title
+      }
+    ' "$plan")
+    if [ -z "$tasks_out" ]; then
+      echo "No tasks found in PLAN.md" >&2
+      exit 0
+    fi
+    while IFS=$'\t' read -r n title; do
+      brief_status="n"; report_status="n"
+      [ -f "$target_dir/task-$n-brief.md" ] && brief_status="y"
+      [ -f "$target_dir/task-$n-report.md" ] && report_status="y"
+      printf '%-4s brief=%s  report=%s  %s\n' "$n" "$brief_status" "$report_status" "$title"
+    done <<< "$tasks_out"
+    ;;
+
   task-brief)
     n="${1:?task number required (e.g. 3)}"
     # Validate integer before interpolating into awk regex — prevents
@@ -198,6 +227,7 @@ Commands:
   path                          Print current plan dir
   write-plan                    Read PLAN.md from stdin → temp dir
   show-plan                     Print PLAN.md path
+  tasks                         List tasks with brief/report status
   task-brief <N>                Extract Task N → task-N-brief.md, print path
   task-report <N>               Print task-N-report.md path (touch if missing)
   review-package <BASE> <HEAD>  Write git diff → review-<..>.md, print path
