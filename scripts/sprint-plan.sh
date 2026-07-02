@@ -130,6 +130,10 @@ case "$cmd" in
       /^##[[:space:]]*Task[[:space:]]*[0-9]+/ {
         line = $0
         sub(/^##[[:space:]]*Task[[:space:]]*/, "", line)
+        # Reject non-integer task numbers (e.g. 1.5) — align with extract_task,
+        # which requires N followed by [:. ], so listing and brief-extraction
+        # agree on what counts as "Task N".
+        if (line !~ /^[0-9]+([:.]?[[:space:]]|$)/) next
         n = line; sub(/[/:.].*$/, "", n); sub(/[[:space:]].*$/, "", n)
         title = line
         # strip leading "N[:.][space]" prefix to get just the title
