@@ -12,6 +12,11 @@ fi
 # Strip heredoc content to avoid false positives on env dump patterns
 CMD_STRIPPED=$(echo "$CMD" | sed '/<<.*$/,/^\s*[A-Z]\{1,20\}$/d' 2>/dev/null || echo "$CMD")
 
+# Normalize: squeeze whitespace runs to single spaces and strip backslashes —
+# catches simple obfuscation like "rm   -rf", "rm<TAB>-rf", "r\m -rf" that
+# defeats the fixed-substring matching used by DESTRUCTIVE_PATTERNS below.
+CMD_NORM=$(echo "$CMD" | tr -s '[:space:]' ' ' | tr -d '\\')
+
 # Destructive patterns to block
 DESTRUCTIVE_PATTERNS=(
   # Filesystem
@@ -218,7 +223,7 @@ SECRET_PATTERNS=(
 )
 
 for pattern in "${DESTRUCTIVE_PATTERNS[@]}"; do
-  if echo "$CMD" | grep -Fqi "$pattern"; then
+  if echo "$CMD" | grep -Fqi "$pattern" || echo "$CMD_NORM" | grep -Fqi "$pattern"; then
     jq -n --arg cmd "$CMD" --arg pattern "$pattern" '{
       "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
@@ -229,6 +234,24 @@ for pattern in "${DESTRUCTIVE_PATTERNS[@]}"; do
     exit 0
   fi
 done
+
+# Structural: detect dynamic command generation (obfuscation bypass). Catches
+# (eval|exec) "...$(...)" / "...`...`", and command-position $() or `` ` ``
+# substitution. All alternatives anchored to command position (start of line
+# or after ;|&) to avoid false positives on eval/exec appearing inside quoted
+# strings or arguments. The char-class guard [^()[:space:]] after $( excludes
+# empty $(), whitespace-only $(, and arithmetic $((. Tool list omitted: ANY
+# non-empty, non-arithmetic substitution at command position is suspicious.
+if echo "$CMD_NORM" | grep -qiE '(^|[|;&])[[:space:]]*((eval|exec)[[:space:]]+.*([$][(]|[`])|[$][(][^()[:space:]]|[`][^`[:space:]])'; then
+  jq -n --arg cmd "$CMD" '{
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "deny",
+      "permissionDecisionReason": ("SAFETY: Blocked dynamic command generation (eval/exec+substitution or command-position $()/backtick). Command: " + $cmd)
+    }
+  }'
+  exit 0
+fi
 
 # Block secret leak commands (use stripped version to skip heredocs)
 for pattern in "${SECRET_PATTERNS[@]}"; do
@@ -250,6 +273,64 @@ for pattern in "${SECRET_PATTERNS[@]}"; do
     exit 0
   fi
 done
+
+# ── Interpreter-file bypass detection ──
+# Block evading the inline scan by writing payload to a file and running it
+# via an interpreter (psql -f /tmp/x.sql, bash /tmp/x.sh, etc.). Scope is
+# intentionally narrow: only files in volatile scratch dirs (/tmp, /dev/shm,
+# $TMPDIR) are scanned — matches the Write-tool threat model where Claude
+# writes to scratch to evade. Repo files (migrations, deploy scripts, this
+# hook itself) are not scanned, eliminating false positives and self-DoS.
+scan_file_content() {
+  local file="$1"
+  [[ "$file" == *'$'* ]] && return 0
+  case "$file" in
+    /tmp/*|/dev/shm/*) : ;;
+    *) [[ -n "${TMPDIR:-}" && "$file" == "$TMPDIR"/* ]] || return 0 ;;
+  esac
+  [[ -f "$file" && -r "$file" ]] || return 0
+  local content
+  content=$(cat -- "$file" 2>/dev/null)
+  [[ -z "$content" ]] && return 0
+  local pattern
+  for pattern in "${DESTRUCTIVE_PATTERNS[@]}" "${SECRET_PATTERNS[@]}"; do
+    if echo "$content" | grep -Fqi "$pattern"; then
+      jq -n --arg cmd "$CMD" --arg pattern "$pattern" --arg file "$file" '{
+        "hookSpecificOutput": {
+          "hookEventName": "PreToolUse",
+          "permissionDecision": "deny",
+          "permissionDecisionReason": ("SAFETY: Blocked destructive payload in volatile-dir file executed via interpreter. File: " + $file + " matched [" + $pattern + "]. Command: " + $cmd)
+        }
+      }'
+      exit 0
+    fi
+  done
+}
+
+if echo "$CMD" | grep -qiE '(^|[[:space:];|&])(psql|bash|sh|zsh|dash|ksh|python[0-9.]*|node|ruby|perl|php|source|\.)([[:space:]]|$)'; then
+  read -ra _TOKENS <<< "$CMD"
+  for _tok in "${_TOKENS[@]}"; do
+    # Strip shell metachars and surrounding quotes
+    _tok="${_tok#[<>|&]}"
+    _tok="${_tok%[;|&<>()]}"
+    while [[ "$_tok" == \"*\" || "$_tok" == \'*\' ]]; do
+      _tok="${_tok#\"}"; _tok="${_tok%\"}"
+      _tok="${_tok#\'}"; _tok="${_tok%\'}"
+    done
+    [[ -z "$_tok" ]] && continue
+    # Extract path from --flag=value form (e.g. psql --file=/tmp/x.sql) before
+    # the env-var/flag skips, otherwise --file=$VAR/x is silently dropped.
+    if [[ "$_tok" == --*=* ]]; then
+      _val="${_tok#*=}"
+      [[ -n "$_val" && "$_val" != *'$'* ]] && scan_file_content "$_val"
+      continue
+    fi
+    [[ "$_tok" == -* ]] && continue
+    [[ "$_tok" == *'$'* ]] && continue
+    scan_file_content "$_tok"
+  done
+  unset _TOKENS _tok
+fi
 
 # Warn patterns (allow but add warning)
 WARN_PATTERNS=(
