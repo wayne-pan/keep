@@ -19,7 +19,7 @@ Works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex
 
 ```bash
 # Clone and install
-git clone https://github.com/your-org/keep.git
+git clone https://github.com/wayne-pan/keep.git
 cd keep
 bash scripts/install.sh
 
