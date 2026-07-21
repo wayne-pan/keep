@@ -13,9 +13,9 @@ Loop Engineering (one floor above this harness, unattended): see rules/loop-engi
 |-------|----------|------|
 | Trivial | 1 file, <5 lines, no design | BUILD→VERIFY |
 | Standard | 1-2 files, <50 lines | READ→BUILD→VERIFY |
-| Complex | 3+ files OR design OR >50 lines | IDENTIFY→READ→PLAN→BUILD→VERIFY→CLAIM (then cross-review skill) |
+| Complex | 3+ files OR design OR >50 lines | trigger `/keep:sprint` (features/refactors) OR `/keep:diagnosing-bugs` (bugs/regressions); both replace built-in plan mode |
 
-Target: trivial ≤2 turns, standard ≤3, complex ≤8.
+Target: trivial ≤2 turns, standard ≤3, complex: routed to `/keep:sprint` or `/keep:diagnosing-bugs` (typically 15-30 turns; phase count per skill).
 
 ### Think Before Coding
 - State assumptions explicitly. If uncertain, ask — don't guess silently.
@@ -24,12 +24,13 @@ Target: trivial ≤2 turns, standard ≤3, complex ≤8.
 - Confused? Stop. Name what's unclear. Ask.
 
 ### Build Discipline
-- Plan mode for non-trivial (3+ steps or architecture)
+- Complex work (3+ files OR design OR >50 lines) → `/keep:sprint` for features/refactors, `/keep:diagnosing-bugs` for bugs/regressions. Standard-scope (1-2 files) needs no separate plan phase — its READ step already covers lightweight planning.
 - Tests pass → stop. Don't refactor passing code
 - Search codebase for existing utils before writing new ones
 - Every changed line must trace to user request
 - Simplicity gate (your own code): if your first draft is 200 lines and a 50-line equivalent exists with same behavior, use the shorter version. No unused features, abstractions, or error handling for failure modes the current call site cannot produce.
 - Surgical edits: don't "improve" adjacent code, comments, or formatting. Match existing style (except where existing style violates the simplicity gate). Notice unrelated dead code — mention it, don't delete it.
+- Re-classification: if a Standard task grows past 2 files or 50 lines mid-execution, snapshot current state (commit or stash partial work), then re-route to `/keep:sprint` Phase 2 (feature/refactor) or `/keep:diagnosing-bugs` Phase 1 (bug/regression). Do not keep going in Standard mode.
 
 ### Verify & Self-Heal
 - After editing: check syntax, run tests, scan stderr

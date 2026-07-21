@@ -28,7 +28,7 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 | 5 | Review | `/keep:review` findings addressed or deferred | `/keep:review` skill |
 | 6 | Test | Full test suite + build + lint all pass | inline |
 | 7 | Ship | Commit landed (**ask before push**) | inline |
-| 8 | Reflect | FINDINGS.md + memory updated | inline |
+| 8 | Reflect | FINDINGS.md + memory updated; `/keep:cross-review` offered if other agents available | inline |
 
 Skip phases 1-2 only for trivial tasks (1 file, <5 lines).
 

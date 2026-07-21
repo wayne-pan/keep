@@ -4,14 +4,15 @@ version: "1.0"
 triggers: []
 description: >
   After completing a Complex task (3+ files OR design OR >50 lines), detect other
-  available agents on this machine and offer cross-agent review. Auto-triggered by
-  core.md's Complex task completion flow.
+  available agents on this machine and offer cross-agent review. Offered at
+  /keep:sprint Phase 8 (Reflect) — conditional on Claude remembering to invoke it
+  and on other agents being available.
 resources: ['mind']
 ---
 
 # Cross-Agent Review
 
-Auto-triggers after Complex task completion (per Task Classification in core.md).
+Offered at `/keep:sprint` Phase 8 (Reflect) after Complex task completion — conditional on Claude remembering to invoke it and on other agents being available. The Complex classification itself lives in core.md's Task Classification.
 
 ## Agent Detection
 
