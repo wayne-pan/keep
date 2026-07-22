@@ -51,7 +51,7 @@ keep/
 │   ├── search/             # FTS5 + recall engine
 │   └── dream/              # Memory maintenance cycle (dedup, merge, prune, strengthen)
 ├── hooks/                  # 28 Claude Code hooks (bash)
-├── skills/                 # 24 skill workflows
+├── skills/                 # 25 skill workflows
 ├── scripts/                # Installer, model switcher, benchmarks
 └── rules/                  # Behavioral rules
 ```
@@ -107,6 +107,7 @@ Ordered by the main engineering flow (align → build → verify → fix). Run `
 | `/keep:ambient` | "/keep:ambient" | Background context awareness and monitoring |
 | `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
 | `/keep:loop` | "set up a loop", "run unattended" | Loop Engineering — five-move automated loop with evaluator gate |
+| `/keep:graph` | "multi-agent graph", "wire agents" | Graph Engineering — multi-node agent coordination with edges and shared state |
 | `/keep:harness` | Module changes | Manage keep's own configuration |
 | `/keep:onboard` | "/keep:onboard" | First-run personalization wizard |
 | `/keep:statusline` | "/keep:statusline:setup" | Token/cost/context status bar |

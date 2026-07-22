@@ -22,7 +22,7 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 | # | Phase | Done when | Detail |
 |---|-------|-----------|--------|
 | 1 | Research | Findings in `.sprint/RESEARCH.md`, gaps documented | `references/context-engineering.md` |
-| 2 | Plan | Structured `PLAN.md` written to temp dir (Task/Step/Interfaces); user approves | Design It Twice + Plan Document below |
+| 2 | Plan | Structured `PLAN.md` written to temp dir (Task/Step/Interfaces); plan-review sub-agent passes | Design It Twice + Plan Review Gate + Plan Document below |
 | 3 | Implement | All planned modules pass validation ladder | `references/validation-ladder.md`, `references/subagent-strategy.md` |
 | 4 | Quality Gate | Format → Build → Test → Lint all pass | table below |
 | 5 | Review | `/keep:review` findings addressed or deferred | `/keep:review` skill |
@@ -74,7 +74,7 @@ Checkpoint: `sprint-checkpoint save quality-gate <stage>` at each stage transiti
 Before entering next phase, verify:
 
 - **Research→Plan**: critical files read; unknowns documented; RESEARCH.md written
-- **Plan→Implement**: user approved the written PLAN.md; every task has Files / Interfaces / Steps; test plan defined; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
+- **Plan→Implement**: plan-review sub-agent passed PLAN.md (verdict logged in `.sprint/STATE.yaml`); every task has Files / Interfaces / Steps; test plan defined; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
 - **Implement→Review**: Quality Gate passed; no incomplete markers in changed code; validation ladder passed for every file
 - **Review→Test**: review findings addressed; no unresolved critical/high severity issues
 
@@ -148,9 +148,27 @@ EOF
 - **No placeholders.** Every step shows actual code or commands. "TBD" / "implement later" / "similar to Task N" = plan failure.
 - **Exact file paths with line ranges** for modifications.
 - **Consumes/Produces blocks** are how downstream task subagents learn upstream signatures — they only read their own brief, not the full PLAN.md.
-- **Self-review before approval**: scan for placeholder patterns, verify each spec requirement maps to a task, check type consistency across tasks.
 
-**Approval gate**: present the written PLAN.md path to the user; do not enter Implement until they approve.
+## Plan Review Gate (Phase 2 → Implement)
+
+After writing PLAN.md, spawn **1 fresh sub-agent** (different context — not the coordinator) to adversarially review the plan before entering Implement. **No user approval needed** — review pass replaces approval.
+
+**Sub-agent brief** — read PLAN.md at `sprint-plan path` and check:
+- **Placeholders**: no "TBD" / "implement later" / "similar to Task N"
+- **Spec coverage**: every requirement from RESEARCH.md maps to a Task
+- **Type consistency**: Consumes/Produces signatures match across tasks
+- **Atomicity**: each Step is one sentence without "and"
+- **Exact paths**: every modification has file:line-range
+- **Test plan**: each Task has a failing-test step
+- **Scope**: 5+ files → flag for split consideration
+
+**Output**: `pass` OR `fail` with a numbered list (each item: file/section + what's wrong + concrete fix).
+
+**Flow**:
+- `pass` → log `plan_review: pass` to `.sprint/STATE.yaml`, auto-enter Implement.
+- `fail` → Claude applies each fix directly to PLAN.md, re-spawns a fresh review sub-agent. **Max 2 rounds**; still failing → STOP, present PLAN.md + remaining findings to user.
+
+**Anti-rationalization**: the coordinator reviewing its own plan does not count — self-approval is the trap this gate exists to break. The sub-agent must be fresh (no shared context with the planner).
 
 **Cross-platform temp dir**: `sprint-plan` honors `KEEP_SPRINT_TMP > TMPDIR > TEMP > TMP > /tmp` — works on Linux, macOS, Windows-native bash, Git Bash, Cygwin. The chosen path is anchored in `.sprint/PLAN_TMP_PATH` so sibling commands rediscover it after `cd` shifts.
 

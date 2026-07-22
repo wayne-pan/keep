@@ -115,3 +115,5 @@ Refuse to `define` a loop complete until all six are answered. This is the gate.
 - **The evaluator is the load-bearing part.** A loop with a weak evaluator has no foundation.
 - **Local cron needs the machine on.** For loops that must run while you sleep, point at GitHub Actions / Cloud Routines — not `CronCreate`. Document this honestly in the spec.
 - **3-day cron expiry.** `CronCreate` recurring jobs auto-expire after 3 days. Re-schedule at session start, or note in STATE.md that the loop is dormant.
+
+**See also**: `rules/graph-engineering.md` — the layer above this one. A loop is the inside of a graph node.
