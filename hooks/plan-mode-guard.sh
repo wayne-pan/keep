@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# plan-mode-guard.sh — PreToolUse hook: nudge toward /keep:sprint or /keep:diagnosing-bugs
-# Soft (exit 0): injects reminder via stderr, lets Claude decide. Non-blocking.
-#
-# Routes: EnterPlanMode → stderr classification reminder → Claude picks /keep:sprint
-# (features/refactors) or /keep:diagnosing-bugs (bugs/regressions) for Complex work.
-# Upgrade path: change `exit 0` to `exit 2` to hard-block (forces Claude to reroute).
+# plan-mode-guard.sh — PreToolUse hook: hard-block built-in plan mode, force reroute.
+# Soft (exit 0) nudge was insufficient — Claude rationalized past stderr advisories.
+# Hard block (exit 2) matches protect-files.sh / pr-gate.sh. To disable, edit settings.json.
 
 set -uo pipefail
 
@@ -14,10 +11,15 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 [ "$TOOL" = "EnterPlanMode" ] || exit 0
 
 cat >&2 <<'EOF'
-[plan-mode-guard] Before entering built-in plan mode, classify per rules/core.md:
-- Complex feature/refactor (3+ files OR design OR >50 lines) → exit plan mode, run /keep:sprint
-- Complex bug/regression → exit plan mode, run /keep:diagnosing-bugs
-- Standard (1-2 files) → plan mode OK
+[plan-mode-guard] Built-in plan mode is blocked per rules/core.md.
+
+Re-route based on task scope:
+  - Complex feature/refactor (3+ files OR design OR >50 lines) → /keep:sprint
+  - Complex bug/regression                                   → /keep:diagnosing-bugs
+  - Standard (1-2 files, <50 lines)                          → skip plan, READ→BUILD→VERIFY
+  - Trivial                                                  → skip plan, BUILD→VERIFY
+
+To disable this gate, remove the EnterPlanMode matcher in settings.json.
 EOF
 
-exit 0
+exit 2
