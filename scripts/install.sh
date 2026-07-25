@@ -936,7 +936,9 @@ mkdir -p "$CLAUDE_DIR/scripts"
 for script in kv-store.sh recursion-guard.sh token-chunk.sh hash-snapshot.sh nonce-wrap.sh sprint-checkpoint.sh sprint-plan.sh classify-observation.sh; do
   if [ -f "$PROJECT_DIR/scripts/$script" ]; then
     deploy_file "$PROJECT_DIR/scripts/$script" "$CLAUDE_DIR/scripts/$script" --chmod +x
-    ok "script: $script"
+    # Expose on $PATH without .sh suffix so skills can call bare (e.g. `sprint-plan init`)
+    ln -sfn "$CLAUDE_DIR/scripts/$script" "$LOCAL_BIN/${script%.sh}"
+    ok "script: $script (→ $LOCAL_BIN/${script%.sh})"
   fi
 done
 
