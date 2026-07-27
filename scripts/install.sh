@@ -978,6 +978,7 @@ def get_defaults():
                     {"type": "command", "command": f"{H}/todo-check.sh"},
                     {"type": "command", "command": f"{H}/no-todo-commit.sh"},
                     {"type": "command", "command": f"{H}/pr-gate.sh"},
+                    {"type": "command", "command": f"{H}/codedb-block-legacy.sh"},
                 ]},
                 {"matcher": "Edit|Write", "hooks": [
                     {"type": "command", "command": f"{H}/protect-files.sh"},
@@ -1020,6 +1021,11 @@ def get_defaults():
                     {"type": "command", "command": f"{H}/sync-memory-rules.sh"},
                     {"type": "command", "command": f"{H}/env-bootstrap.sh"},
                     {"type": "command", "command": f"{H}/mem-session.sh"},
+                ]},
+            ],
+            "SessionStart": [
+                {"hooks": [
+                    {"type": "command", "command": f"{H}/codedb-warmup.sh"},
                 ]},
             ],
         },
