@@ -985,6 +985,9 @@ def get_defaults():
                 {"matcher": "mcp__mind__smart_outline|mcp__mind__smart_search|mcp__codedb__codedb_outline", "hooks": [
                     {"type": "command", "command": f"{H}/tool-cache.sh pre"},
                 ]},
+                {"matcher": "EnterPlanMode", "hooks": [
+                    {"type": "command", "command": f"{H}/plan-mode-guard.sh"},
+                ]},
             ],
             "PostToolUse": [
                 {"matcher": "Bash", "hooks": [
