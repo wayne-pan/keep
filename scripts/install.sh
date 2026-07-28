@@ -596,18 +596,18 @@ for skill_dir in "$PROJECT_DIR"/skills/*/; do
 done
 
 # ── Hooks ──
-for hook in safety-guard.sh nto-rewrite.sh session-stop-guard.sh session-checkpoint.sh auto-format.sh protect-files.sh audit-log.sh todo-check.sh no-todo-commit.sh post-bash-scan-secrets.sh pre-compact-instructions.sh sync-memory-rules.sh mem-record.sh mem-session.sh env-bootstrap.sh validate-edit.sh update-code-map.sh codedb-reindex.sh pr-gate.sh review-queue-inject.sh constitutional-check.sh tool-cache.sh; do
-  if [ -f "$PROJECT_DIR/hooks/$hook" ]; then
-    deploy_file "$PROJECT_DIR/hooks/$hook" "$CLAUDE_DIR/hooks/$hook" --chmod +x
-    ok "Hook: $hook"
-  else
-    warn "Hook source not found: $hook"
-  fi
+# Wildcard deploy — mirrors deploy_codex_harness() pattern.
+# Keeps this list in sync with hooks/ automatically; never drifts when a
+# new hook is added. Settings.json references are the source of truth for
+# which hooks actually fire.
+deployed_hooks=0
+for hook in "$PROJECT_DIR"/hooks/*.sh; do
+  [ -f "$hook" ] || continue
+  deploy_file "$hook" "$CLAUDE_DIR/hooks/$(basename "$hook")" --chmod +x
+  ok "Hook: $(basename "$hook")"
+  deployed_hooks=$((deployed_hooks + 1))
 done
-
-if [ ! -f "$CLAUDE_DIR/hooks/nto-rewrite.sh" ] && [ ! -L "$CLAUDE_DIR/hooks/nto-rewrite.sh" ]; then
-  warn "nto-rewrite.sh not found in hooks/"
-fi
+ok "Hooks deployed: $deployed_hooks scripts"
 
 # ── Codex CLI Harness ──
 deploy_codex_harness() {
@@ -710,6 +710,7 @@ hooks_config = {
             {"type": "command", "command": f"{H}/todo-check.sh"},
             {"type": "command", "command": f"{H}/no-todo-commit.sh"},
             {"type": "command", "command": f"{H}/pr-gate.sh"},
+            {"type": "command", "command": f"{H}/codedb-block-legacy.sh"},
         ]},
         {"matcher": "Edit|Write", "hooks": [
             {"type": "command", "command": f"{H}/protect-files.sh"},
@@ -1165,6 +1166,42 @@ if [ "${SKIP_SMOKE_TEST:-}" != "1" ]; then
     [ -L "$CLAUDE_DIR/rules/core.md" ] && ok "rules → symlinks" || warn "rules not symlinks"
     [ -L "$CLAUDE_DIR/hooks/safety-guard.sh" ] && ok "hooks → symlinks" || warn "hooks not symlinks"
     [ ! -L "$CLAUDE_DIR/settings.json" ] && ok "settings.json is real file" || warn "settings.json is symlink!"
+  fi
+
+  # Hook deploy drift check — every settings.json hook reference must
+  # resolve to a deployed file. Source→deploy direction is guaranteed by
+  # the wildcard deploy loop above under set -e, so we only check the
+  # reverse. Uses argv-passing (not bash interpolation into Python string
+  # literals) so paths with quotes/backslashes don't break parsing.
+  echo ""
+  info "=== Hook Drift Check ==="
+  if [ ! -f "$SETTINGS" ]; then
+    warn "settings.json missing — skipping hook ref check"
+  elif dangling_refs=$(python3 - "$SETTINGS" "$CLAUDE_DIR/hooks" 2>&1 << 'PYEOF'
+import json, os, sys
+settings_path, H = sys.argv[1], sys.argv[2]
+settings = json.load(open(settings_path))
+dangling = []
+for event, groups in settings.get('hooks', {}).items():
+    for group in groups:
+        for h in group.get('hooks', []):
+            cmd = h.get('command', '')
+            # first token is the script path (strip args like "tool-cache.sh pre")
+            script = cmd.split()[0] if cmd else ''
+            if script.startswith(H + '/') and not os.path.exists(script):
+                dangling.append(os.path.basename(script))
+print('\n'.join(dangling))
+PYEOF
+); then
+    if [ -z "$dangling_refs" ]; then
+      ok "All settings.json hook references resolve"
+    else
+      warn "Dangling hook refs in settings.json:"
+      echo "$dangling_refs" | sed 's/^/    /'
+    fi
+  else
+    warn "Could not verify hook refs (python3 failed):"
+    echo "$dangling_refs" | sed 's/^/    /'
   fi
 
   echo ""
