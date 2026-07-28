@@ -90,7 +90,7 @@ If neither override nor Complex → Ambiguous, no-op.
 |--------|-----|
 | Bypass for one task | Start prompt with `--no-sprint` |
 | Declare scope explicitly | Start prompt with `trivial:` or `standard:` |
-| Disable globally for this session | Set env `SPRINT_ENFORCE=0` (CI / scripted runs) |
+| Disable globally for this session | Set env `SPRINT_ENFORCE=0` (also accepts `false`, `no`, `off`) |
 | Disable across all projects | Remove the `.claude/settings.json` hook registration |
 
 **Note**: keyword negations (`trivial`, `simple`, ...) appearing mid-prompt
@@ -101,8 +101,12 @@ explicit prefix override to clear.
 
 Even with pending active, these paths are editable:
 
-- `*.md` (any markdown — docs, rules, plans)
-- `rules/`, `docs/`, `.sprint/`, `.keep/`, `tests/`
+- `*.md` — any markdown file anywhere (docs, rules, plans)
+- Paths whose **first repo-relative segment** is `rules/`, `docs/`, `.sprint/`, `.keep/`, or `tests/`
+
+Repo-relative path is computed by stripping `$CLAUDE_PROJECT_DIR` prefix from
+absolute paths. This anchoring prevents bypass via paths like `src/docs/x.py`
+or `vendor/tests/payload.py` — only top-level `docs/x.py` is whitelisted.
 
 **Accepted tradeoff**: `rules/` is whitelisted because rules are
 documentation-like. A model could *theoretically* edit `rules/core.md` to

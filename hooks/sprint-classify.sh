@@ -11,8 +11,10 @@
 
 set -uo pipefail
 
-# Escape hatch for CI / scripted runs
-[ "${SPRINT_ENFORCE:-1}" = "0" ] && exit 0
+# Escape hatch for CI / scripted runs — accepts common falsy values.
+case "${SPRINT_ENFORCE:-1}" in
+  0|false|FALSE|no|NO|off|OFF) exit 0 ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_PATH="$SCRIPT_DIR/lib/sprint-state.sh"
@@ -28,7 +30,8 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Cap prompt size (60s hook timeout safety)
+# Cap prompt size (60s hook timeout safety; 2000 chars is well under the
+# limit and longer prompts rarely change classification outcome).
 PROMPT="${PROMPT:0:2000}"
 
 # Strip leading whitespace (defeats prefix override if user pastes with indent)
@@ -57,17 +60,17 @@ fi
 # If user explicitly overrode, clear any existing pending for this session.
 # (Keyword-based negation below does NOT clear — too easy to false-positive.)
 if [ "$OVERRIDE" -eq 1 ]; then
-  sprint_state_clear "$SESSION_ID" 2>/dev/null || true
+  sprint_state_clear "$SESSION_ID"
 fi
 
 # --- Negation signal 2: keyword list (word-boundary, context-filtered) ---
 if [ "$NEGATION" -eq 0 ]; then
   # Strip "not X" / "non-X" / "isn't X" / "is not X" contexts — user is
   # EMPHASIZING complexity, not signalling simplicity.
-  # NOTE: bash `${var//pat/}` with an apostrophe in `pat` triggers a parser
-  # error ("unexpected EOF while looking for matching '"), so we normalize
-  # apostrophes via `tr` first and match apostrophe-free patterns.
-  LOWER_FILT="$(printf '%s' "$LOWER" | tr -d "'")"
+  # Normalize apostrophles (ASCII ' and Unicode U+2018/2019) via sed so the
+  # substring patterns below can match apostrophe-free forms.
+  # (bash `${var//pat/}` with apostrophe in `pat` triggers parser error.)
+  LOWER_FILT="$(printf '%s' "$LOWER" | sed "s/'/ /g; s/$(printf '\xe2\x80\x98')/ /g; s/$(printf '\xe2\x80\x99')/ /g")"
   for ctx in "not trivial" "non-trivial" "isnt trivial" "is not trivial" \
              "not simple" "non-simple" "not quick" "non-quick"; do
     LOWER_FILT="${LOWER_FILT//"$ctx"/}"
@@ -93,9 +96,12 @@ fi
 
 # --- Affirmative signal 2: scope hint ---
 # Either ≥3 distinct file paths OR explicit quantifier.
-# Path regex requires a slash to avoid matching URLs/hostnames (review CONCERN #4).
+# 3 paths = heuristic threshold above which work is clearly multi-file.
+# Pre-filter URLs (http(s)://) so they don't inflate file count via the
+# path regex (which requires a slash — URLs contain slashes too).
 if [ "$NEGATION" -eq 0 ] && [ "$VERB" -eq 1 ]; then
-  FILE_COUNT="$(printf '%s' "$PROMPT_LSTRIPPED" | grep -oE '[A-Za-z][A-Za-z0-9_/.-]*/[A-Za-z0-9_/.-]+\.[a-z]{1,5}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
+  PROMPT_NO_URL="$(printf '%s' "$PROMPT_LSTRIPPED" | sed -E 's|https?://[^ )]+||g')"
+  FILE_COUNT="$(printf '%s' "$PROMPT_NO_URL" | grep -oE '[A-Za-z][A-Za-z0-9_/.-]*/[A-Za-z0-9_/.-]+\.[a-z]{1,5}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
   [ -n "$FILE_COUNT" ] || FILE_COUNT=0
   if [ "$FILE_COUNT" -ge 3 ]; then
     SCOPE=1

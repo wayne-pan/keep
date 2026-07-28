@@ -143,6 +143,34 @@ test_sprint_enforce_zero_bypasses_gate() {
   [ "$rc" = "0" ] && return 0 || return 1
 }
 
+test_nested_docs_path_denied() {
+  # REGRESSION H2: src/docs/x.py must NOT match whitelist (was matching
+  # */docs/* overreach). Only top-level docs/ is whitelisted.
+  run_with_pending '{"tool_name":"Edit","session_id":"test-sess","tool_input":{"file_path":"src/docs/evil.py"}}' 2
+}
+
+test_nested_tests_path_denied() {
+  # REGRESSION H2: vendor/tests/payload.py must NOT match whitelist
+  run_with_pending '{"tool_name":"Edit","session_id":"test-sess","tool_input":{"file_path":"vendor/tests/payload.py"}}' 2
+}
+
+test_lib_missing_fails_closed() {
+  # REGRESSION H1: if lib is unreadable, gate MUST fail closed (exit 2),
+  # not silently allow.
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  # Move lib aside to simulate missing/unreadable
+  mv "$REPO_ROOT/hooks/lib/sprint-state.sh" "$tmp/sprint-state.sh.bak"
+  local rc
+  printf '%s' '{"tool_name":"Edit","session_id":"x","tool_input":{"file_path":"src/main.py"}}' \
+    | bash "$HOOK_PATH" >/dev/null 2>&1
+  rc=$?
+  # Restore lib
+  mv "$tmp/sprint-state.sh.bak" "$REPO_ROOT/hooks/lib/sprint-state.sh"
+  rm -rf "$tmp"
+  [ "$rc" = "2" ] && return 0 || return 1
+}
+
 # --- Runner ---
 
 run "pending+Edit src/: denied"                          test_pending_src_denied
@@ -160,6 +188,9 @@ run "empty-filepath: allowed (cannot determine)"         test_empty_filepath_all
 run "empty-session_id: allowed (degraded mode)"          test_empty_session_id_allowed
 run "deny stderr contains override hint"                 test_stderr_contains_override_hint
 run "SPRINT_ENFORCE=0 bypass: allowed even with pending" test_sprint_enforce_zero_bypasses_gate
+run "REGRESSION H2: src/docs/x.py DENIED (whitelist anchored)"      test_nested_docs_path_denied
+run "REGRESSION H2: vendor/tests/x.py DENIED (whitelist anchored)"  test_nested_tests_path_denied
+run "REGRESSION H1: missing lib → fail closed (exit 2)"             test_lib_missing_fails_closed
 
 echo "---"
 echo "Passed: $PASS_COUNT, Failed: $FAIL_COUNT"

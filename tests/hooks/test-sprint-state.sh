@@ -117,6 +117,38 @@ test_corrupted_json() {
   return "$rc"
 }
 
+test_cross_session_clear_no_collision() {
+  # REGRESSION H3: session_ids sanitizing to same filename must not let
+  # one session delete another's pending. "abc!" and "abc@" both sanitize
+  # to "abc_" — clearing one must NOT delete the other.
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  # shellcheck disable=SC1090
+  source "$LIB_PATH"
+  sprint_state_set "abc!" "session-A"
+  # abc@ shares sanitized filename but has different session_id stored
+  sprint_state_clear "abc@"
+  # abc!'s pending must still be active (clear verified session_id before rm)
+  if sprint_state_is_pending "abc!"; then rc=0; else rc=1; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+test_ttl_zero_or_negative_invalid_falls_back() {
+  # REGRESSION L1: SPRINT_PENDING_TTL=0 or negative must fall back to default,
+  # not produce an instantly-expired pending.
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  export SPRINT_PENDING_TTL=0
+  # shellcheck disable=SC1090
+  source "$LIB_PATH"
+  sprint_state_set test-sess "ttl-zero"
+  unset SPRINT_PENDING_TTL
+  if sprint_state_is_pending test-sess; then rc=0; else rc=1; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # --- Runner ---
 
 run "round-trip: set then is_pending returns 0"           test_round_trip
@@ -125,7 +157,9 @@ run "TTL: expired pending returns 1"                       test_ttl_expired
 run "session-isolation: A's pending invisible to B"        test_session_isolation
 run "default-path: writes to .keep/state/ when env unset"  test_default_path
 run "empty-session-id: rejected by set and is_pending"     test_empty_session_id
-run "corrupted-json: is_pending fails safe (returns 1)"    test_corrupted_json
+run "corrupted-json: is_pending fails safe (returns 1)"                    test_corrupted_json
+run "REGRESSION H3: cross-session clear no collision"                     test_cross_session_clear_no_collision
+run "REGRESSION L1: TTL=0 falls back to default"                          test_ttl_zero_or_negative_invalid_falls_back
 
 echo "---"
 echo "Passed: $PASS_COUNT, Failed: $FAIL_COUNT"

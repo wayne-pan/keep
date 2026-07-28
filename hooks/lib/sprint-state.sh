@@ -11,8 +11,16 @@
 
 set -uo pipefail
 
+# Default state dir (override via KEEP_STATE_DIR — used by tests).
 KEEP_STATE_DIR="${KEEP_STATE_DIR:-.keep/state}"
+# TTL: 1800s = 30 minutes. Long enough for model to invoke sprint skill
+# between turns; short enough that a forgotten pending doesn't stall forever.
+# Override via SPRINT_PENDING_TTL (must be positive integer).
 TTL_SECONDS="${SPRINT_PENDING_TTL:-1800}"
+case "$TTL_SECONDS" in
+  ''|*[!0-9]*) TTL_SECONDS=1800 ;;
+esac
+[ "$TTL_SECONDS" -gt 0 ] || TTL_SECONDS=1800
 
 # _pending_file_for <session_id>
 # Sanitizes session_id into a filename-safe segment and prints the full path.
@@ -53,12 +61,17 @@ sprint_state_set() {
 }
 
 # sprint_state_clear <session_id>
-# Idempotent delete of this session's pending file. Always returns 0.
+# Idempotent delete. Verifies stored session_id matches before deleting,
+# preventing cross-session deletion via sanitization collisions
+# (e.g. "abc!" and "abc@" sanitize to same filename). Always returns 0.
 sprint_state_clear() {
   local session_id="$1"
   [ -n "$session_id" ] || return 0
-  local file
+  local file file_sid
   file="$(_pending_file_for "$session_id")"
+  [ -f "$file" ] || return 0
+  file_sid="$(jq -r '.session_id // empty' "$file" 2>/dev/null)" || return 0
+  [ "$file_sid" = "$session_id" ] || return 0
   rm -f "$file"
   return 0
 }
@@ -91,7 +104,8 @@ sprint_state_is_pending() {
 }
 
 # sprint_state_get_reason <session_id>
-# Echoes reason field; exit 1 if not is_pending.
+# Echoes reason field; exit 1 if not is_pending. Single caller: sprint-gate.sh.
+# Kept as a function for testability — see test-sprint-state.sh.
 sprint_state_get_reason() {
   local session_id="$1"
   sprint_state_is_pending "$session_id" || return 1
