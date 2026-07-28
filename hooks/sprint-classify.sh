@@ -39,16 +39,25 @@ LOWER="$(printf '%s' "$PROMPT_LSTRIPPED" | tr '[:upper:]' '[:lower:]')"
 NEGATION=0
 VERB=0
 SCOPE=0
+OVERRIDE=0  # explicit prefix override — also clears existing pending
 
 # --- Negation signal 1: prefix override (after whitespace strip) ---
+# OVERRIDE=1 means user explicitly said "skip sprint" — clear any existing
+# pending too, so the override takes effect immediately (not just on next write).
 case "$PROMPT_LSTRIPPED" in
-  trivial:*|standard:*) NEGATION=1 ;;
+  trivial:*|standard:*) NEGATION=1; OVERRIDE=1 ;;
 esac
 # --no-sprint as first token, with space OR tab OR end-of-string boundary
 if [ "$NEGATION" -eq 0 ]; then
   case "$PROMPT_LSTRIPPED" in
-    --no-sprint|--no-sprint[[:space:]]*) NEGATION=1 ;;
+    --no-sprint|--no-sprint[[:space:]]*) NEGATION=1; OVERRIDE=1 ;;
   esac
+fi
+
+# If user explicitly overrode, clear any existing pending for this session.
+# (Keyword-based negation below does NOT clear — too easy to false-positive.)
+if [ "$OVERRIDE" -eq 1 ]; then
+  sprint_state_clear "$SESSION_ID" 2>/dev/null || true
 fi
 
 # --- Negation signal 2: keyword list (word-boundary, context-filtered) ---
