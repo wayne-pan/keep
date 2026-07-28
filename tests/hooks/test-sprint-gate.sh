@@ -128,6 +128,21 @@ test_stderr_contains_override_hint() {
   return "$rc"
 }
 
+test_sprint_enforce_zero_bypasses_gate() {
+  # Escape hatch: SPRINT_ENFORCE=0 must allow even with pending active
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  export SPRINT_ENFORCE=0
+  # shellcheck disable=SC1090
+  source "$LIB_PATH"
+  sprint_state_set test-sess "x"
+  printf '%s' '{"tool_name":"Edit","session_id":"test-sess","tool_input":{"file_path":"src/main.py"}}' | bash "$HOOK_PATH" >/dev/null 2>&1
+  local rc=$?
+  unset SPRINT_ENFORCE
+  rm -rf "$tmp"
+  [ "$rc" = "0" ] && return 0 || return 1
+}
+
 # --- Runner ---
 
 run "pending+Edit src/: denied"                          test_pending_src_denied
@@ -144,6 +159,7 @@ run "no-pending+src/: allowed (gate inactive)"           test_no_pending_any_all
 run "empty-filepath: allowed (cannot determine)"         test_empty_filepath_allowed
 run "empty-session_id: allowed (degraded mode)"          test_empty_session_id_allowed
 run "deny stderr contains override hint"                 test_stderr_contains_override_hint
+run "SPRINT_ENFORCE=0 bypass: allowed even with pending" test_sprint_enforce_zero_bypasses_gate
 
 echo "---"
 echo "Passed: $PASS_COUNT, Failed: $FAIL_COUNT"

@@ -11,6 +11,9 @@
 
 set -uo pipefail
 
+# Escape hatch for CI / scripted runs
+[ "${SPRINT_ENFORCE:-1}" = "0" ] && exit 0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_PATH="$SCRIPT_DIR/lib/sprint-state.sh"
 # shellcheck disable=SC1090

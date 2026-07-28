@@ -215,6 +215,20 @@ test_urls_do_not_inflate_file_count() {
   return "$rc"
 }
 
+test_sprint_enforce_zero_bypasses() {
+  # Escape hatch: SPRINT_ENFORCE=0 must short-circuit before any classification
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  export SPRINT_ENFORCE=0
+  local payload
+  payload=$(jq -cn --arg p "implement refactor across src/main.py src/util.py src/api.py" --arg s "sess-bypass" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  unset SPRINT_ENFORCE
+  if pending_exists "sess-bypass"; then rc=1; else rc=0; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # --- Runner ---
 
 run "complex-3-files: pending SET"                                       test_complex_3_files
@@ -231,6 +245,7 @@ run "REGRESSION 'non-trivial': pending SET (R-CRIT #1)"                 test_non
 run "REGRESSION leading-space + --no-sprint: no pending (R-CRIT #2)"    test_override_with_leading_space
 run "REGRESSION --no-sprint+TAB: no pending (R-CRIT #3)"                test_no_sprint_with_tab
 run "REGRESSION URLs don't inflate file count (R-CONCERN #4)"           test_urls_do_not_inflate_file_count
+run "SPRINT_ENFORCE=0 bypass: no pending (escape hatch)"               test_sprint_enforce_zero_bypasses
 
 echo "---"
 echo "Passed: $PASS_COUNT, Failed: $FAIL_COUNT"
