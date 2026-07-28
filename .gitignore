@@ -8,6 +8,7 @@ learnings.jsonl
 # Working-state (review/audit artifacts, not production)
 .sprint/
 .audit/
+.keep/state/
 
 # Benchmark data
 codedb.snapshot
@@ -16,7 +17,10 @@ codedb.snapshot
 .codedb/
 
 # Local Claude config (personal permissions, paths)
-.claude/
+# Exception: .claude/settings.json is team-shared (project-level hook
+# registration for sprint-enforcement), so it IS tracked.
+.claude/*
+!.claude/settings.json
 
 # Python cache
 .ruff_cache/
