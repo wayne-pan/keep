@@ -150,6 +150,71 @@ test_empty_session_id_no_op() {
   return "$rc"
 }
 
+# --- Regression tests for review CRITICAL findings ---
+
+test_not_trivial_still_complex() {
+  # CRITICAL #1: "not trivial" must NOT trigger negation.
+  # User emphasizing complexity should still set pending.
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  local payload
+  payload=$(jq -cn --arg p "implement this migration, it is not trivial, will touch src/main.py src/util.py src/api.py" --arg s "sess-not-triv" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  if pending_exists "sess-not-triv"; then rc=0; else rc=1; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+test_non_trivial_still_complex() {
+  # CRITICAL #1 variant: "non-trivial" with hyphen
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  local payload
+  payload=$(jq -cn --arg p "build a non-trivial refactor across src/a.py src/b.py src/c.py" --arg s "sess-non-triv" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  if pending_exists "sess-non-triv"; then rc=0; else rc=1; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+test_override_with_leading_space() {
+  # CRITICAL #2: leading whitespace must not defeat prefix override
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  local payload
+  payload=$(jq -cn --arg p "  --no-sprint implement refactor across src/main.py src/util.py src/api.py" --arg s "sess-lspace" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  if pending_exists "sess-lspace"; then rc=1; else rc=0; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+test_no_sprint_with_tab() {
+  # CRITICAL #3: --no-sprint followed by tab must override
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  local payload
+  # Use literal tab via printf
+  payload=$(jq -cn --arg p "$(printf -- '--no-sprint\timplement refactor across src/main.py src/util.py src/api.py')" --arg s "sess-tab" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  if pending_exists "sess-tab"; then rc=1; else rc=0; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+test_urls_do_not_inflate_file_count() {
+  # CONCERN #4: URLs / hostnames must NOT count toward file threshold
+  local tmp; tmp="$(mktemp -d)" || return 1
+  export KEEP_STATE_DIR="$tmp"
+  local payload
+  payload=$(jq -cn --arg p "implement feature, see docs at example.com and test at sample.org — also reference cdn.cloudflare.com" --arg s "sess-url" '{prompt:$p, session_id:$s}')
+  invoke_hook "$payload"
+  # URLs don't contain /, so file_count=0; no quantifier → Ambiguous, no pending
+  if pending_exists "sess-url"; then rc=1; else rc=0; fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # --- Runner ---
 
 run "complex-3-files: pending SET"                                       test_complex_3_files
@@ -161,6 +226,11 @@ run "ambiguous: no pending"                                              test_am
 run "complex-without-scope: no pending"                                  test_complex_without_scope_no_pending
 run "trivial: prefix: no pending"                                        test_trivial_prefix
 run "empty-session_id: hook no-ops"                                      test_empty_session_id_no_op
+run "REGRESSION 'not trivial': pending SET (R-CRIT #1)"                 test_not_trivial_still_complex
+run "REGRESSION 'non-trivial': pending SET (R-CRIT #1)"                 test_non_trivial_still_complex
+run "REGRESSION leading-space + --no-sprint: no pending (R-CRIT #2)"    test_override_with_leading_space
+run "REGRESSION --no-sprint+TAB: no pending (R-CRIT #3)"                test_no_sprint_with_tab
+run "REGRESSION URLs don't inflate file count (R-CONCERN #4)"           test_urls_do_not_inflate_file_count
 
 echo "---"
 echo "Passed: $PASS_COUNT, Failed: $FAIL_COUNT"

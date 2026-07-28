@@ -6,6 +6,8 @@
 #
 # Conservative bias: only set pending on unambiguous Complex signals.
 # Override (only at prompt start): `--no-sprint`, `trivial:`, `standard:`.
+# Negation keywords use word-boundary matching with "not X" / "non-X" context
+# filtering to avoid false negatives (e.g. "this is not trivial" → still Complex).
 
 set -uo pipefail
 
@@ -26,41 +28,62 @@ fi
 # Cap prompt size (60s hook timeout safety)
 PROMPT="${PROMPT:0:2000}"
 
-LOWER="$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')"
+# Strip leading whitespace (defeats prefix override if user pastes with indent)
+PROMPT_LSTRIPPED="${PROMPT#"${PROMPT%%[![:space:]]*}"}"
+
+LOWER="$(printf '%s' "$PROMPT_LSTRIPPED" | tr '[:upper:]' '[:lower:]')"
 
 NEGATION=0
 VERB=0
 SCOPE=0
 
-# --- Negation signal 1: prefix override ---
-case "$PROMPT" in
-  trivial:*|standard:*|"--no-sprint "*|"--no-sprint") NEGATION=1 ;;
+# --- Negation signal 1: prefix override (after whitespace strip) ---
+case "$PROMPT_LSTRIPPED" in
+  trivial:*|standard:*) NEGATION=1 ;;
 esac
-
-# --- Negation signal 2: keyword substring list ---
+# --no-sprint as first token, with space OR tab OR end-of-string boundary
 if [ "$NEGATION" -eq 0 ]; then
-  for kw in trivial simple quick "one-line" "single file" "small fix"; do
-    if [[ "$LOWER" == *"$kw"* ]]; then
-      NEGATION=1
-      break
-    fi
-  done
+  case "$PROMPT_LSTRIPPED" in
+    --no-sprint|--no-sprint[[:space:]]*) NEGATION=1 ;;
+  esac
 fi
 
-# --- Affirmative signal 1: verb keyword ---
+# --- Negation signal 2: keyword list (word-boundary, context-filtered) ---
 if [ "$NEGATION" -eq 0 ]; then
-  for kw in build implement refactor "add feature" ship rewrite migrate; do
-    if [[ "$LOWER" == *"$kw"* ]]; then
-      VERB=1
-      break
-    fi
+  # Strip "not X" / "non-X" / "isn't X" / "is not X" contexts — user is
+  # EMPHASIZING complexity, not signalling simplicity.
+  # NOTE: bash `${var//pat/}` with an apostrophe in `pat` triggers a parser
+  # error ("unexpected EOF while looking for matching '"), so we normalize
+  # apostrophes via `tr` first and match apostrophe-free patterns.
+  LOWER_FILT="$(printf '%s' "$LOWER" | tr -d "'")"
+  for ctx in "not trivial" "non-trivial" "isnt trivial" "is not trivial" \
+             "not simple" "non-simple" "not quick" "non-quick"; do
+    LOWER_FILT="${LOWER_FILT//"$ctx"/}"
   done
+  # Word-boundary match. Single-word + hyphenated compound keywords only;
+  # phrase keywords ("single file", "small fix") dropped — too many false
+  # positives when user is describing scope, not signalling simplicity.
+  if printf '%s' "$LOWER_FILT" | grep -qwE 'trivial|simple|quick|one-liner|one-line'; then
+    NEGATION=1
+  fi
+fi
+
+# --- Affirmative signal 1: verb keyword (word-boundary) ---
+# Single-word verbs matched via grep -wE; "add feature" as phrase substring.
+if [ "$NEGATION" -eq 0 ]; then
+  if printf '%s' "$LOWER" | grep -qwE 'build|implement|refactor|ship|rewrite|migrate'; then
+    VERB=1
+  fi
+  if [ "$VERB" -eq 0 ] && [[ "$LOWER" == *"add feature"* ]]; then
+    VERB=1
+  fi
 fi
 
 # --- Affirmative signal 2: scope hint ---
-# Either ≥3 distinct file paths OR explicit quantifier
+# Either ≥3 distinct file paths OR explicit quantifier.
+# Path regex requires a slash to avoid matching URLs/hostnames (review CONCERN #4).
 if [ "$NEGATION" -eq 0 ] && [ "$VERB" -eq 1 ]; then
-  FILE_COUNT="$(printf '%s' "$PROMPT" | grep -oE '[A-Za-z][A-Za-z0-9_/.-]*\.[a-z]{1,5}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
+  FILE_COUNT="$(printf '%s' "$PROMPT_LSTRIPPED" | grep -oE '[A-Za-z][A-Za-z0-9_/.-]*/[A-Za-z0-9_/.-]+\.[a-z]{1,5}' 2>/dev/null | sort -u | wc -l | tr -d ' ')"
   [ -n "$FILE_COUNT" ] || FILE_COUNT=0
   if [ "$FILE_COUNT" -ge 3 ]; then
     SCOPE=1
