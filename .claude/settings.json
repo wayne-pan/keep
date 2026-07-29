@@ -32,7 +32,7 @@
         ]
       }
     ],
-    "SessionStop": [
+    "SessionEnd": [
       {
         "hooks": [
           {

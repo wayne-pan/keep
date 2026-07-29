@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sprint-session-stop.sh — SessionStop hook
+# sprint-session-stop.sh — SessionEnd hook
 # Cleans up any pending sprint state for this session.
 # Always exits 0 — cleanup must not block session exit.
 

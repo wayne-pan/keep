@@ -39,7 +39,7 @@ PreToolUse:Edit|Write ──▶ sprint-gate.sh
                             ├─ file whitelisted → allow
                             └─ pending + non-whitelisted → DENY (exit 2)
 
-SessionStop ──▶ sprint-session-stop.sh ──▶ clear pending for this session
+SessionEnd ──▶ sprint-session-stop.sh ──▶ clear pending for this session
 ```
 
 ## Hooks (4 source files + 1 lib)
@@ -50,7 +50,7 @@ SessionStop ──▶ sprint-session-stop.sh ──▶ clear pending for this se
 | `hooks/sprint-classify.sh` | `UserPromptSubmit` | Classify prompt; write pending on Complex |
 | `hooks/sprint-clear.sh` | `PostToolUse:Skill` | Clear pending on successful sprint skill |
 | `hooks/sprint-gate.sh` | `PreToolUse:Edit\|Write\|MultiEdit` | Hard gate with whitelist |
-| `hooks/sprint-session-stop.sh` | `SessionStop` | Deterministic cleanup (TTL is fallback) |
+| `hooks/sprint-session-stop.sh` | `SessionEnd` | Deterministic cleanup (TTL is fallback) |
 
 State file: `.keep/state/sprint-pending-<sanitized-sid>.json` (per-session isolation, atomic write, 1800s TTL).
 
@@ -131,7 +131,7 @@ scope hint. Manually invoke `/keep:sprint`.
 
 ### "Pending file stuck in `.keep/state/`"
 
-Three cleanup paths: (1) SessionStop hook on session exit, (2) TTL 30min
+Three cleanup paths: (1) SessionEnd hook on session exit, (2) TTL 30min
 expiry on next is_pending check, (3) next `--no-sprint` override.
 Manual: `rm .keep/state/sprint-pending-*.json`.
 
