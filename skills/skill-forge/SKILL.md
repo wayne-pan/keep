@@ -56,7 +56,7 @@ resources: ['resource1', 'resource2']
 - **`name`** — `keep:<kebab-case>`. Matches the directory name under `skills/`.
 - **`version`** — Semver string. Bump on structural change to the skill body.
 - **`triggers`** — Slash-command forms only (`/keep:phrase`). Each trigger must be specific enough to not swallow other skills' triggers (no bare `/keep:make`, `/keep:create`, `/keep:write` — use `/keep:make a feature` etc.).
-- **`description`** — One paragraph. Should include `TRIGGER when:` and `Do NOT trigger for:` clauses so the harness can route activation. Auto-trigger skills (empty `triggers:` array, e.g. `cross-review`) are exempt — they fire on lifecycle events, not user invocation. Read by the harness for routing, not the user.
+- **`description`** — One paragraph. Should include `TRIGGER when:` and `Do NOT trigger for:` clauses so the harness can route activation. Auto-trigger skills (empty `triggers:` array) are exempt — they fire on lifecycle events, not user invocation. Read by the harness for routing, not the user.
 - **`routes_to`** — **Capability declaration, not recursive invocation.** Lists skills this one *can* hand off to (typically via `routes_to` in the description prose: "use `/keep:review` for X"). It does **not** mean the skill auto-calls them on completion. Mutual `routes_to` (e.g. `sprint ↔ review`) is permitted — it just means each can reference the other, not that they form an infinite loop.
 - **`resources`** — External primitives the skill relies on (`git`, `subagents`, `mind`, `cron`, `worktrees`, `git-diff`, `settings-json`). Listed so the skill can do a resource check at start and degrade gracefully.
 - **`allowed-tools`** — Optional. Restrict which tools the skill may use (e.g. `Bash(browser-use:*)`).
@@ -68,7 +68,7 @@ Every skill is one of two modes. Pick at creation time and reflect it in `trigge
 | Mode | Markers | When to use |
 |------|---------|-------------|
 | **user-invoked** | Non-empty `triggers:` array; description focuses on what the user types | The skill orchestrates a workflow the user consciously chooses (`sprint`, `grilling`, `route`). Zero automatic context load on other turns. |
-| **model-invoked** | `triggers: []` (auto-trigger) OR rich `TRIGGER when:` clauses in description; the harness fires it on contextual match | The skill holds reusable discipline the agent should reach for whenever the task fits (`cross-review` on lifecycle events, hypothetical inline skills on keyword match). Costs context load on every conversation. |
+| **model-invoked** | `triggers: []` (auto-trigger) OR rich `TRIGGER when:` clauses in description; the harness fires it on contextual match | The skill holds reusable discipline the agent should reach for whenever the task fits (hypothetical inline skills on keyword match, lifecycle-event skills on session boundaries). Costs context load on every conversation. |
 
 **Rules:**
 
@@ -182,7 +182,7 @@ Every skill (new or patched) must pass:
 
 Skills are prompts — every line costs tokens on every activation. But skill *type* sets the natural ceiling.
 
-**The numbers below are guidelines, not laws.** They're calibrated against existing skills in this repo (largest orchestrator: triage at 230 lines; largest reference: cross-review at 57). Treat a ceiling crossing as a trigger to ask "why is this long?", not as an automatic refactor.
+**The numbers below are guidelines, not laws.** They're calibrated against existing skills in this repo (largest orchestrator: triage at 230 lines). Treat a ceiling crossing as a trigger to ask "why is this long?", not as an automatic refactor.
 
 | Skill type | Guideline | Why |
 |------------|-----------|-----|

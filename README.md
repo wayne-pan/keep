@@ -11,7 +11,7 @@ Works with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex
 | **Persistent Memory** | Cross-session knowledge storage with FTS5 search, spaced repetition, and dream-cycle maintenance |
 | **Safety Guards** | 100+ destructive command patterns blocked (filesystem, SQL, AWS, GCP, Azure, Aliyun, Terraform, K8s) |
 | **Token Optimization** | NTO command rewriter saves 60-90% tokens on common CLI operations |
-| **Skill Workflows** | 25+ skills including `/keep:sprint`, `/keep:loop`, `/keep:graph`, `/keep:review` — structured multi-agent workflows across five engineering layers |
+| **Skill Workflows** | 20+ skills including `/keep:sprint`, `/keep:loop`, `/keep:review` — structured multi-agent workflows across five engineering layers |
 | **Multi-Tool Support** | Same memory server works across Claude Code, Codex CLI, Cursor, Windsurf, and OpenCode |
 | **Model Manager** | `mx` switches between 15+ LLM providers for both Claude Code and Codex CLI |
 
@@ -66,7 +66,7 @@ keep orchestrates AI work across five cumulative layers — each wraps the one b
 | **Context** | What the model sees | Memory MCP, context trimming |
 | **Harness** | Tools, hooks, safety, scaffolding | `hooks/`, `skills/`, `rules/` |
 | **Loop** | One agent's repeat cycle (discover → verify → persist) | `/keep:loop` |
-| **Graph** | Coordination between many specialized agents | `/keep:graph` |
+| **Graph** | Coordination between many specialized agents | `rules/graph-engineering.md` (conceptual — no skill; most tasks never need one) |
 
 A loop is the inside of a graph node. A graph earns its keep only when a single loop can't hold the work — most tasks never need one. See `rules/loop-engineering.md` and `rules/graph-engineering.md`.
 
@@ -96,7 +96,7 @@ Supports: filesystem, git, SQL, AWS (26 patterns), GCP (26), Azure (16), Aliyun 
 
 ### Skills
 
-Ordered by the main engineering flow (align → build → verify → fix → orchestrate). The orchestration skills (`/keep:loop`, `/keep:graph`) sit one floor above the harness — they coordinate other skills rather than running tasks directly. Run `/keep:route` when unsure which applies.
+Ordered by the main engineering flow (align → build → verify → fix → orchestrate). The orchestration skill (`/keep:loop`) sits one floor above the harness — it coordinates other skills rather than running tasks directly. Run `/keep:route` when unsure which applies.
 
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
@@ -121,7 +121,6 @@ Ordered by the main engineering flow (align → build → verify → fix → orc
 | `/keep:ambient` | "/keep:ambient" | Background context awareness and monitoring |
 | `/keep:skill-forge` | "/keep:skill" | Auto-extract reusable skill templates from experience |
 | `/keep:loop` | "set up a loop", "run unattended" | Loop Engineering — five-move automated loop with evaluator gate |
-| `/keep:graph` | "multi-agent graph", "wire agents" | Graph Engineering — multi-node agent coordination with edges and shared state |
 | `/keep:harness` | Module changes | Manage keep's own configuration |
 | `/keep:onboard` | "/keep:onboard" | First-run personalization wizard |
 | `/keep:statusline` | "/keep:statusline:setup" | Token/cost/context status bar |

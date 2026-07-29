@@ -219,4 +219,3 @@ Run /keep:grilling first to lock the plan, then /keep:sprint to ship it.
 | `harness` | Meta | Modify keep itself |
 | `onboard` | Setup | First-run personalisation wizard |
 | `statusline` | Setup | Token / cost / context status bar |
-| `cross-review` | Auto | Cross-agent review after Complex task (auto-trigger) |
