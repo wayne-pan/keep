@@ -67,13 +67,15 @@ if [ -n "$PRICING_FILE" ] && [ -f "$PRICING_FILE" ] && [ "$MODEL" != "null" ]; t
   fi
 fi
 
-# --- Tool call count from scope-guard state (if present) ---
+# --- Tool call count from scope-guard state (if present, not a symlink, digits only) ---
 TOOL_CALLS="null"
 SCOPE_FILE="${SCOPE_STATE_DIR:-/tmp}/claude-scope-${SESSION_ID}"
-if [ -f "$SCOPE_FILE" ]; then
+if [ -f "$SCOPE_FILE" ] && [ ! -L "$SCOPE_FILE" ]; then
   TC=$(grep '^count=' "$SCOPE_FILE" 2>/dev/null | cut -d= -f2)
-  TC=${TC:-}
-  if [ -n "$TC" ]; then TOOL_CALLS="$TC"; fi
+  case "$TC" in
+    ''|*[!0-9]*) ;;           # empty or non-numeric → stay null, never kill the append
+    *) TOOL_CALLS="$TC" ;;
+  esac
 fi
 
 # --- Append row ---

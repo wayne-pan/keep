@@ -36,7 +36,6 @@ R_IDS=(
   aws-key private-key generic-token pipe-shell reverse-shell exfil exec-obfuscated env-credentials
 )
 R_SEV=(  critical  critical   critical     critical    critical      critical  warn         warn )
-R_CAT=(  hooks     hooks      hooks        hooks       hooks         hooks     hooks        hooks )
 R_PAT=(
   'AKIA[0-9A-Z]{16}|aws_secret_access_key.{0,3}=.{0,3}[A-Za-z0-9/+=_-]{16}'
   '-----BEGIN [A-Z ]*PRIVATE KEY-----'
@@ -187,7 +186,7 @@ render() {
   if [ "$total" -gt 0 ]; then
     printf '%-9s %-9s %-34s %-20s %s\n' "SEVERITY" "CATEGORY" "LOCATION" "RULE" "MESSAGE"
     local sorted
-    sorted=$(printf '%s\n' "${FINDINGS[@]}" | sort -t'|' -k1,1r)
+    sorted=$(printf '%s\n' "${FINDINGS[@]}" | sed 's/^critical/2|critical/;s/^warn/1|warn/;s/^info/0|info/' | sort -t'|' -k1,1r | cut -d'|' -f2-)
     while IFS= read -r f; do
       IFS='|' read -r sev cat loc rule msg fix <<< "$f"
       printf '%-9s %-9s %-34s %-20s %s\n' "$(echo "$sev" | tr '[:lower:]' '[:upper:]')" "$cat" "$loc" "$rule" "$msg"
