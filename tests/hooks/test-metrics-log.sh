@@ -98,12 +98,24 @@ test_registered_in_installer() {
   grep -q 'metrics-log' "$REPO_ROOT/scripts/install.sh"
 }
 
+test_poisoned_count_defaults_to_null() {
+  local tmp; tmp=$(mktemp -d)
+  make_transcript "$tmp/transcript.jsonl"; make_pricing "$tmp/pricing.json"
+  printf 'count=abc123\nfiles=\n' > "$tmp/claude-scope-t-poison"
+  printf '%s' "$(stdin_payload t-poison "$tmp/transcript.jsonl" "$tmp/myproj")" \
+    | METRICS_DIR="$tmp/metrics" PRICING_FILE="$tmp/pricing.json" SCOPE_STATE_DIR="$tmp" bash "$HOOK_PATH" >/dev/null 2>&1
+  local row; row=$(tail -1 "$tmp/metrics/costs.jsonl" 2>/dev/null)
+  rm -rf "$tmp"
+  echo "$row" | jq -e '.tool_calls == null' >/dev/null 2>&1
+}
+
 # --- Run ---
 run "appends valid costs.jsonl row" test_appends_valid_row
 run "tool_calls from scope state" test_tool_calls_from_scope_state
 run "missing pricing → null cost, exit 0" test_missing_pricing_null_cost
 run "appends, never overwrites" test_appends_not_overwrites
 run "metrics-log registered in install.sh" test_registered_in_installer
+run "poisoned non-numeric count → tool_calls null, row survives" test_poisoned_count_defaults_to_null
 
 echo
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"

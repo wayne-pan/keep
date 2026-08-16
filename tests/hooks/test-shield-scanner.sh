@@ -175,6 +175,17 @@ test_severity_filter() {
   [ "$rc" -eq 2 ] && ! echo "$out" | grep -qE '^\|?WARN'
 }
 
+test_severity_sort_order() {
+  local fix out crit_pos warn_pos
+  fix="$(mktemp -d)"; build_fixture "$fix"
+  out=$(bash "$SCANNER" --target "$fix" 2>/dev/null)
+  rm -rf "$fix"
+  # CRITICAL rows must print before WARN rows in the text table
+  crit_pos=$(echo "$out" | grep -n 'CRITICAL' | head -1 | cut -d: -f1)
+  warn_pos=$(echo "$out" | grep -n 'WARN' | head -1 | cut -d: -f1)
+  [ -n "$crit_pos" ] && [ -n "$warn_pos" ] && [ "$crit_pos" -lt "$warn_pos" ]
+}
+
 # --- Run ---
 run "scanner exists" test_scanner_exists
 run "exit 2 on critical findings" test_exit_2_on_critical
@@ -186,6 +197,7 @@ run "prompt injection detected" test_finds_prompt_injection
 run "clean fixture exits 0 + PASS" test_clean_fixture_passes
 run "JSON mode valid schema" test_json_mode_valid
 run "severity filter hides warn" test_severity_filter
+run "CRITICAL sorts before WARN in table" test_severity_sort_order
 
 echo
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
