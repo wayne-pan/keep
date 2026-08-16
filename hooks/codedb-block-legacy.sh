@@ -1,22 +1,15 @@
 #!/bin/bash
 # codedb PreToolUse guard. Nudges agents from native file tools to codedb —
 # but ONLY inside a codedb-indexed repo, and never for paths outside it.
-# Fail-open by design (a nudge, not a wall). Bypass: prefix the command with
-# CODEDB_NO_HOOKS=1 (per-command), or export CODEDB_NO_HOOKS=1 before launching
-# claude (session-wide).
+# Fail-open by design (a nudge, not a wall). Disable entirely: CODEDB_NO_HOOKS=1.
 [ -n "$CODEDB_NO_HOOKS" ] && exit 0
+[ -f "$HOME/.codedb/no-hooks" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 command -v codedb >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 [ -z "$CMD" ] && exit 0
-
-# Honor per-command CODEDB_NO_HOOKS= escape. Inline env assignment doesn't
-# propagate to this hook subprocess, so inspect the command string itself.
-# Anchored to start (with optional env/sudo prefix) to avoid false-positive
-# bypass when the substring appears in a filename or search pattern argument.
-echo "$CMD" | grep -qE '^[[:space:]]*((env|sudo)[[:space:]]+)?CODEDB_NO_HOOKS=[^[:space:]]' && exit 0
 
 STRIPPED=$(echo "$CMD" | sed -E 's/^[[:space:]]*(env|sudo|command|builtin|exec|nohup)[[:space:]]+//')
 STRIPPED=$(echo "$STRIPPED" | sed -E 's/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+//')
@@ -57,13 +50,11 @@ for tok in $STRIPPED; do
 done
 set +f
 
-BYPASS_HINT="Bypass: prefix CODEDB_NO_HOOKS=1, or export it before launching claude."
-
 case "$FIRST" in
-  grep|rg|egrep|fgrep) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_search \"<text>\" (codedb_word for an exact identifier, codedb_callers for call sites) instead of $FIRST — ranked + fewer tokens. $BYPASS_HINT" >&2; exit 2 ;;
-  cat) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_read path=<file> (codedb_outline first for a map) instead of cat. $BYPASS_HINT" >&2; exit 2 ;;
-  head|tail) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_read path=<file> line_start=.. line_end=.. instead of $FIRST. $BYPASS_HINT" >&2; exit 2 ;;
-  sed|awk) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_edit (op=str_replace) instead of $FIRST for edits. $BYPASS_HINT" >&2; exit 2 ;;
-  find) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_find (fuzzy names) or codedb_glob (patterns) instead of find. $BYPASS_HINT" >&2; exit 2 ;;
+  grep|rg|egrep|fgrep) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_search \"<text>\" (codedb_word for an exact identifier, codedb_callers for call sites) instead of $FIRST — ranked + fewer tokens. Native $FIRST is allowed outside this repo or with CODEDB_NO_HOOKS=1." >&2; exit 2 ;;
+  cat) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_read path=<file> (codedb_outline first for a map) instead of cat. CODEDB_NO_HOOKS=1 to disable." >&2; exit 2 ;;
+  head|tail) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_read path=<file> line_start=.. line_end=.. instead of $FIRST. CODEDB_NO_HOOKS=1 to disable." >&2; exit 2 ;;
+  sed|awk) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_edit (op=str_replace) instead of $FIRST for edits. CODEDB_NO_HOOKS=1 to disable." >&2; exit 2 ;;
+  find) echo "BLOCKED in indexed repo ($REPO_ROOT): use codedb_find (fuzzy names) or codedb_glob (patterns) instead of find. CODEDB_NO_HOOKS=1 to disable." >&2; exit 2 ;;
 esac
 exit 0
