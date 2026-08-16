@@ -1025,6 +1025,7 @@ def get_defaults():
                     {"type": "command", "command": f"{H}/sync-memory-rules.sh"},
                     {"type": "command", "command": f"{H}/env-bootstrap.sh"},
                     {"type": "command", "command": f"{H}/mem-session.sh"},
+                    {"type": "command", "command": f"{H}/metrics-log.sh"},
                 ]},
             ],
             "SessionStart": [
