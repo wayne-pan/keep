@@ -69,7 +69,7 @@ Done when: I can name every path through the machine and identify any non-termin
 ```bash
 # Seed dirty/untracked files from the main repo into a fresh worktree.
 : "${SEED_SRC:?export SEED_SRC=<main-repo-dir>}" "${SEED_DST:?export SEED_DST=<worktree-dir>}"
-git -C "$SEED_SRC" status --porcelain | cut -c4- | grep -Ev '\.(log|tmp)$' | while IFS= read -r f; do
+git -C "$SEED_SRC" status --porcelain -uall | cut -c4- | grep -Ev '\.(log|tmp)$' | while IFS= read -r f; do
   mkdir -p "$SEED_DST/$(dirname "$f")"
   cp "$SEED_SRC/$f" "$SEED_DST/$f" 2>/dev/null || true
 done

@@ -88,6 +88,11 @@ if [ "$file_count" -ge "$DRIFT_THRESHOLD" ] && [ "$count" -lt "$HARD_BUDGET" ]; 
 fi
 
 # Save state (after msg build — one-shot flags mutated above must persist)
+# Refuse to write through a symlink (classic /tmp pre-create attack)
+if [ -L "$STATE_FILE" ]; then
+  echo "scope-guard: refusing symlink state file: $STATE_FILE" >&2
+  exit 0
+fi
 cat > "$STATE_FILE" << STATE
 count=$count
 files=$files_touched

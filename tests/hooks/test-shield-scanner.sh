@@ -146,15 +146,17 @@ test_finds_prompt_injection() {
 }
 
 test_clean_fixture_passes() {
-  local fix out rc
+  local fix out rc jout
   fix="$(mktemp -d)"
   mkdir -p "$fix/hooks" "$fix/skills/clean"
   printf '#!/usr/bin/env bash\necho ok\n' > "$fix/hooks/ok.sh"
   printf -- '---\nname: clean\n---\n# Clean\nUse Read and Grep.\n' > "$fix/skills/clean/SKILL.md"
   printf '{\n  "permissions": {"allow": [{"Grep": ["specific-pattern"]}]}\n}\n' > "$fix/settings.json"
   out=$(bash "$SCANNER" --target "$fix" 2>/dev/null); rc=$?
+  jout=$(bash "$SCANNER" --target "$fix" --json 2>/dev/null)
   rm -rf "$fix"
-  [ "$rc" -eq 0 ] && echo "$out" | grep -q "PASS"
+  [ "$rc" -eq 0 ] && echo "$out" | grep -q "PASS" \
+    && echo "$jout" | jq -e '.status == "PASS" and (.findings | length == 0)' >/dev/null 2>&1
 }
 
 test_json_mode_valid() {

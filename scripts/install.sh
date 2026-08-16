@@ -1056,12 +1056,15 @@ def merge_hooks(existing, defaults):
             merged = False
             for i, eg in enumerate(groups):
                 if eg.get("matcher") == matcher:
-                    cmds = {h["command"] for h in eg.get("hooks", [])}
+                    cmds = {h.get("command") for h in eg.get("hooks", [])}
+                    new_hooks = list(eg.get("hooks", []))
                     for hook in ng.get("hooks", []):
-                        if hook["command"] not in cmds:
-                            groups[i] = dict(eg)
-                            groups[i]["hooks"] = list(eg.get("hooks", [])) + [hook]
-                            cmds.add(hook["command"])
+                        if hook.get("command") not in cmds:
+                            new_hooks.append(hook)
+                            cmds.add(hook.get("command"))
+                    if len(new_hooks) != len(eg.get("hooks", [])):
+                        groups[i] = dict(eg)
+                        groups[i]["hooks"] = new_hooks
                     merged = True
                     break
             if not merged:

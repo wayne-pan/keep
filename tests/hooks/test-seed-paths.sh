@@ -50,12 +50,14 @@ test_snippet_copies_dirty_and_untracked() {
   local src dst code
   src=$(mktemp -d); dst=$(mktemp -d)
   make_repo "$src"
+  mkdir -p "$src/notes" && echo draft > "$src/notes/draft.md"
   code=$(extract_snippet "$PROTO")
   [ -n "$code" ] || { rm -rf "$src" "$dst"; return 1; }
   SEED_SRC="$src" SEED_DST="$dst" bash -c "$code"
   local ok=1
   [ "$(cat "$dst/inflight.txt" 2>/dev/null)" = "dirty" ] || ok=0
   [ "$(cat "$dst/fresh-note.md" 2>/dev/null)" = "new" ] || ok=0
+  [ "$(cat "$dst/notes/draft.md" 2>/dev/null)" = "draft" ] || ok=0
   [ ! -f "$dst/scratch.log" ] || ok=0
   [ ! -f "$dst/committed.txt" ] || ok=0
   rm -rf "$src" "$dst"

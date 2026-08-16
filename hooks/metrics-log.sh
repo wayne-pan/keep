@@ -18,6 +18,7 @@ PROJECT="unknown"
 
 METRICS_DIR="${METRICS_DIR:-$HOME/.claude/metrics}"
 mkdir -p "$METRICS_DIR" 2>/dev/null || exit 0
+chmod 700 "$METRICS_DIR" 2>/dev/null || true
 OUT_FILE="$METRICS_DIR/costs.jsonl"
 
 # Pricing resolution: explicit override respected as-is; fallback only when unset
