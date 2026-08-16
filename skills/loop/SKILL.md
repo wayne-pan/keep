@@ -61,6 +61,19 @@ Execute the five moves in order, reading the spec. Each move has a done-criterio
 
 A move that cannot satisfy its done-criteria halts the revolution and writes the halt reason to STATE.md.
 
+**Move 2 seeding.** `EnterWorktree` branches from HEAD — dirty/untracked files in the main tree do not follow the generator in. If the finding depends on in-flight files, seed them right after `EnterWorktree`:
+
+<!-- seed-begin -->
+```bash
+# Seed dirty/untracked files from the main repo into a fresh worktree.
+: "${SEED_SRC:?export SEED_SRC=<main-repo-dir>}" "${SEED_DST:?export SEED_DST=<worktree-dir>}"
+git -C "$SEED_SRC" status --porcelain | cut -c4- | grep -Ev '\.(log|tmp)$' | while IFS= read -r f; do
+  mkdir -p "$SEED_DST/$(dirname "$f")"
+  cp "$SEED_SRC/$f" "$SEED_DST/$f" 2>/dev/null || true
+done
+```
+<!-- seed-end -->
+
 ### Generator/Evaluator Model Rules
 
 - Generator model ≠ evaluator model (recommended).

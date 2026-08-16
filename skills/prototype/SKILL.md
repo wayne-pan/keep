@@ -55,6 +55,7 @@ Default recommendation by question type. If unclear, ask the user **one** questi
 - [ ] State the budget (default: 60 minutes)
 - [ ] State the **done-when** criterion: what observable outcome answers the question?
 - [ ] `EnterWorktree` with a descriptive name (e.g. `prototype-orders-state-machine`)
+- [ ] **Seed in-flight files** into the worktree — `EnterWorktree` branches from HEAD, so dirty/untracked files in the main tree do not follow. Run the marked snippet below with both env vars set.
 
 ```
 Question: "Does the order-cancellation state machine have a terminating path when
@@ -63,6 +64,17 @@ Mode: terminal (state machine question, no UI)
 Budget: 60 minutes
 Done when: I can name every path through the machine and identify any non-terminating ones
 ```
+
+<!-- seed-begin -->
+```bash
+# Seed dirty/untracked files from the main repo into a fresh worktree.
+: "${SEED_SRC:?export SEED_SRC=<main-repo-dir>}" "${SEED_DST:?export SEED_DST=<worktree-dir>}"
+git -C "$SEED_SRC" status --porcelain | cut -c4- | grep -Ev '\.(log|tmp)$' | while IFS= read -r f; do
+  mkdir -p "$SEED_DST/$(dirname "$f")"
+  cp "$SEED_SRC/$f" "$SEED_DST/$f" 2>/dev/null || true
+done
+```
+<!-- seed-end -->
 
 **Done when:** worktree created, question/mode/budget/done-when written at the top of the prototype's README.
 
