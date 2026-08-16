@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scope-guard.sh — PostToolUse hook: track tool budget and file drift
-# Maintains /tmp/claude-scope-{session} state file.
+# scope-guard.sh — PostToolUse hook: track tool budget, file drift, and tool loops
+# Maintains ${SCOPE_STATE_DIR:-/tmp}/claude-scope-{session} state file.
 # Injects warnings via additionalContext (non-blocking).
 
 set -uo pipefail
@@ -12,20 +12,33 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"')
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.command // empty' | head -c 500)
 
 # State file
-STATE_FILE="/tmp/claude-scope-${SESSION_ID}"
+STATE_FILE="${SCOPE_STATE_DIR:-/tmp}/claude-scope-${SESSION_ID}"
 SOFT_BUDGET=30
 HARD_BUDGET=80
 DRIFT_THRESHOLD=10
+LOOP_THRESHOLD=3
 
 # Increment turn counter
 count=0
 files_touched=""
+last_hash=""
+loop_n=0
 if [ -f "$STATE_FILE" ]; then
-  count=$(grep '^count=' "$STATE_FILE" 2>/dev/null | cut -d= -f2)
-  files_touched=$(grep '^files=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-)
+  count=$(grep '^count=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); count=${count:-0}
+  files_touched=$(grep '^files=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-); files_touched=${files_touched:-}
+  last_hash=$(grep '^last_hash=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); last_hash=${last_hash:-}
+  loop_n=$(grep '^loop_n=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); loop_n=${loop_n:-0}
 fi
 
 count=$((count + 1))
+
+# Tool loop detection: hash tool_name + tool_input (response excluded — retries differ)
+CALL_SIG=$(printf '%s' "$INPUT" | jq -Sc '{t:.tool_name, i:.tool_input}' | sha256sum | cut -c1-12)
+if [ -n "$last_hash" ] && [ "$CALL_SIG" = "$last_hash" ]; then
+  loop_n=$((loop_n + 1))
+else
+  loop_n=1
+fi
 
 # Track unique files
 if [ -n "$FILE_PATH" ] && [ "$FILE_PATH" != "null" ]; then
@@ -46,16 +59,23 @@ fi
 cat > "$STATE_FILE" << STATE
 count=$count
 files=$files_touched
+last_hash=$CALL_SIG
+loop_n=$loop_n
 STATE
 
 # Build warning message
 msg=""
 
+# Loop warning (takes precedence in position; budget/drift append)
+if [ "$loop_n" -ge "$LOOP_THRESHOLD" ]; then
+  msg="[Loop] ⚠️ identical call x$loop_n — stuck. Change approach or escalate to user."
+fi
+
 # Budget warnings
 if [ "$count" -ge "$HARD_BUDGET" ]; then
-  msg="[Scope] ⛔ Turn $count/$HARD_BUDGET. Files: $file_count. HARD LIMIT reached. STOP, summarize progress, suggest fresh session."
+  msg="${msg:+$msg }[Scope] ⛔ Turn $count/$HARD_BUDGET. Files: $file_count. HARD LIMIT reached. STOP, summarize progress, suggest fresh session."
 elif [ "$count" -ge "$SOFT_BUDGET" ]; then
-  msg="[Scope] ⚠️ Turn $count/$HARD_BUDGET. Files: $file_count. Soft budget passed — compress context, narrow focus."
+  msg="${msg:+$msg }[Scope] ⚠️ Turn $count/$HARD_BUDGET. Files: $file_count. Soft budget passed — compress context, narrow focus."
 fi
 
 # Drift detection

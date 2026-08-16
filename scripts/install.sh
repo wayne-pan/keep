@@ -1008,6 +1008,9 @@ def get_defaults():
                 {"matcher": "mcp__mind__smart_outline|mcp__mind__smart_search|mcp__codedb__codedb_outline", "hooks": [
                     {"type": "command", "command": f"{H}/tool-cache.sh post"},
                 ]},
+                {"hooks": [
+                    {"type": "command", "command": f"{H}/scope-guard.sh"},
+                ]},
             ],
             "PreCompact": [
                 {"hooks": [
