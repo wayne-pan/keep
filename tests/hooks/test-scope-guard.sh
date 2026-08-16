@@ -76,12 +76,37 @@ test_registered_in_installer() {
   grep -q 'scope-guard' "$INSTALL_SH"
 }
 
+test_compact_hint_once() {
+  local tmp; tmp=$(fresh); export SCOPE_STATE_DIR="$tmp"
+  printf 'count=24\nfiles=\nlast_hash=abc\nloop_n=1\ncompact_hint=0\n' > "$tmp/claude-scope-t-compact"
+  local p out1 out2 ok=1
+  p=$(payload Bash "echo next" t-compact)
+  out1=$(hook_out "$p")
+  echo "$out1" | grep -q '\[Compact\]' || ok=0
+  grep -q '^compact_hint=1' "$tmp/claude-scope-t-compact" || ok=0
+  out2=$(hook_out "$p")
+  echo "$out2" | grep -q '\[Compact\]' && ok=0
+  rm -rf "$tmp"
+  [ "$ok" -eq 1 ]
+}
+
+test_compact_hint_skipped_when_done() {
+  local tmp; tmp=$(fresh); export SCOPE_STATE_DIR="$tmp"
+  printf 'count=40\nfiles=\nlast_hash=abc\nloop_n=1\ncompact_hint=1\n' > "$tmp/claude-scope-t-done"
+  local out
+  out=$(hook_out "$(payload Bash "echo more" t-done)")
+  rm -rf "$tmp"
+  ! echo "$out" | grep -q '\[Compact\]'
+}
+
 # --- Run ---
 run "loop warning on 3rd identical call" test_loop_on_third_identical
 run "no loop warning on alternating calls" test_no_loop_on_alternating
 run "legacy state file does not crash" test_legacy_state_no_crash
 run "state file persists hash fields" test_state_has_hash_fields
 run "scope-guard registered in install.sh" test_registered_in_installer
+run "compact hint fires once at boundary" test_compact_hint_once
+run "compact hint skipped when already given" test_compact_hint_skipped_when_done
 
 echo
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"

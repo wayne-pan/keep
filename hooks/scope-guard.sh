@@ -17,17 +17,20 @@ SOFT_BUDGET=30
 HARD_BUDGET=80
 DRIFT_THRESHOLD=10
 LOOP_THRESHOLD=3
+COMPACT_HINT_AT=25
 
 # Increment turn counter
 count=0
 files_touched=""
 last_hash=""
 loop_n=0
+compact_hint=0
 if [ -f "$STATE_FILE" ]; then
   count=$(grep '^count=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); count=${count:-0}
   files_touched=$(grep '^files=' "$STATE_FILE" 2>/dev/null | cut -d= -f2-); files_touched=${files_touched:-}
   last_hash=$(grep '^last_hash=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); last_hash=${last_hash:-}
   loop_n=$(grep '^loop_n=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); loop_n=${loop_n:-0}
+  compact_hint=$(grep '^compact_hint=' "$STATE_FILE" 2>/dev/null | cut -d= -f2); compact_hint=${compact_hint:-0}
 fi
 
 count=$((count + 1))
@@ -55,20 +58,18 @@ if [ -n "$files_touched" ]; then
   file_count=$(echo "$files_touched" | tr '|' '\n' | sort -u | wc -l)
 fi
 
-# Save state
-cat > "$STATE_FILE" << STATE
-count=$count
-files=$files_touched
-last_hash=$CALL_SIG
-loop_n=$loop_n
-STATE
-
 # Build warning message
 msg=""
 
 # Loop warning (takes precedence in position; budget/drift append)
 if [ "$loop_n" -ge "$LOOP_THRESHOLD" ]; then
   msg="[Loop] ⚠️ identical call x$loop_n — stuck. Change approach or escalate to user."
+fi
+
+# One-shot compact suggestion at a logical boundary (before soft budget bites)
+if [ "$count" -ge "$COMPACT_HINT_AT" ] && [ "$compact_hint" != "1" ]; then
+  msg="${msg:+$msg }[Compact] 💡 Turn $count — logical boundary. Consider /compact before the next phase."
+  compact_hint=1
 fi
 
 # Budget warnings
@@ -85,6 +86,15 @@ if [ "$file_count" -ge "$DRIFT_THRESHOLD" ] && [ "$count" -lt "$HARD_BUDGET" ]; 
   fi
   msg="${msg}[Drift] ⚠️ $file_count files touched — scope expanding. Consider: split task or delegate to Agent subagent."
 fi
+
+# Save state (after msg build — one-shot flags mutated above must persist)
+cat > "$STATE_FILE" << STATE
+count=$count
+files=$files_touched
+last_hash=$CALL_SIG
+loop_n=$loop_n
+compact_hint=$compact_hint
+STATE
 
 # Output
 if [ -n "$msg" ]; then
