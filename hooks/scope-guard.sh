@@ -13,11 +13,13 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.command 
 
 # State file
 STATE_FILE="${SCOPE_STATE_DIR:-/tmp}/claude-scope-${SESSION_ID}"
+# Symlinked state file = /tmp pre-create attack; refuse read AND write
+[ -L "$STATE_FILE" ] && exit 0
 SOFT_BUDGET=30
 HARD_BUDGET=80
 DRIFT_THRESHOLD=10
-LOOP_THRESHOLD=3
-COMPACT_HINT_AT=25
+LOOP_THRESHOLD=3          # ECC parity: 3+ consecutive identical calls = stuck
+COMPACT_HINT_AT=25        # 5-turn runway before SOFT_BUDGET bites
 
 # Increment turn counter
 count=0
@@ -63,7 +65,7 @@ msg=""
 
 # Loop warning (takes precedence in position; budget/drift append)
 if [ "$loop_n" -ge "$LOOP_THRESHOLD" ]; then
-  msg="[Loop] ⚠️ identical call x$loop_n — stuck. Change approach or escalate to user."
+  msg="[Loop] ⚠️ ${loop_n} consecutive identical calls — stuck. Change approach or escalate to user."
 fi
 
 # One-shot compact suggestion at a logical boundary (before soft budget bites)
@@ -88,11 +90,6 @@ if [ "$file_count" -ge "$DRIFT_THRESHOLD" ] && [ "$count" -lt "$HARD_BUDGET" ]; 
 fi
 
 # Save state (after msg build — one-shot flags mutated above must persist)
-# Refuse to write through a symlink (classic /tmp pre-create attack)
-if [ -L "$STATE_FILE" ]; then
-  echo "scope-guard: refusing symlink state file: $STATE_FILE" >&2
-  exit 0
-fi
 cat > "$STATE_FILE" << STATE
 count=$count
 files=$files_touched

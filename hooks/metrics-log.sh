@@ -54,7 +54,7 @@ fi
 # --- Cost estimate via pricing.json (substring: model id ↔ pricing key) ---
 COST="null"
 if [ -n "$PRICING_FILE" ] && [ -f "$PRICING_FILE" ] && [ "$MODEL" != "null" ]; then
-  KEY=$(jq -r --arg m "$MODEL" '.models | to_entries[] | .key as $k | select($m | test($k)) | $k' "$PRICING_FILE" 2>/dev/null | head -1)
+  KEY=$(jq -r --arg m "$MODEL" '[.models | to_entries[] | .key as $k | select($m | test($k)) | $k] | sort_by(length) | reverse | .[0] // empty' "$PRICING_FILE" 2>/dev/null)
   if [ -n "$KEY" ] && [ "$KEY" != "null" ]; then
     COST=$(jq -n \
       --argjson i "$T_IN" --argjson o "$T_OUT" --argjson cw "$T_CW" --argjson cr "$T_CR" \

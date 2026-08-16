@@ -25,9 +25,10 @@ done
 sev_rank() { case "$1" in critical) echo 2 ;; warn) echo 1 ;; *) echo 0 ;; esac; }
 MIN_RANK=$(sev_rank "$MIN_SEV")
 
-# Config-derived strings are DATA, never instructions — strip control chars,
-# truncate. Blocks the config → scanner-output → model injection channel.
-sanitize() { printf '%s' "$1" | tr -d '\n\r\t' | head -c 100; }
+# Config-derived strings are DATA, never instructions — strip control chars
+# and field delimiters, truncate. Blocks the config → scanner-output → model
+# injection channel AND finding-row corruption.
+sanitize() { printf '%s' "$1" | tr -d '\n\r\t|' | head -c 100; }
 
 # --- Rule catalog (parallel arrays; grep -E patterns) ---
 # categories: hooks, skills, prompts are grep-based; settings and mcp are jq walks.
@@ -90,7 +91,7 @@ scan_settings() {
     local sev="warn" id
     id="wildcard-$(echo "$tool" | tr '[:upper:]' '[:lower:]')"
     [ "$tool" = "Bash" ] && sev="critical"
-    [ "$(sev_rank "$sev")" -ge "$MIN_RANK" ] && add "$sev" settings "settings.json" "$id" "Wildcard ${tool} allow (${pattern}) — arbitrary ${tool} use permitted" "Replace ${pattern} with explicit patterns"
+    [ "$(sev_rank "$sev")" -ge "$MIN_RANK" ] && add "$sev" settings "settings.json" "$id" "Wildcard $(sanitize "$tool") allow ($(sanitize "$pattern")) — arbitrary $(sanitize "$tool") use permitted" "Replace wildcard with explicit patterns"
   done < <(jq -r '.permissions.allow[]? | objects | to_entries[] | .key as $t | .value[]? | select(. == "*" or . == "**") | "\($t)\t\(.)"' "$f" 2>/dev/null)
   # hook commands living outside the audited tree
   while IFS= read -r cmd; do
@@ -122,15 +123,12 @@ scan_mcp() {
     [ -n "$cmd" ] || continue
     [ "$(sev_rank warn)" -ge "$MIN_RANK" ] && add "warn" mcp "$(basename "$f")" "mcp-npx" "MCP server '$(sanitize "$name")' executes via npx (supply-chain exposure): $(sanitize "$cmd")" "Pin exact package@version; review publisher"
   done < <(jq -r '.mcpServers | to_entries[]? | select((.value.command // "") == "npx" or ([.value.args[]? // empty] | join(" ") | test("npx"))) | "\(.key)\t\(.value.command) \(.value.args // [] | join(" "))"' "$f" 2>/dev/null)
-  # env values that look like secrets
-  while IFS=$'\t' read -r name key val; do
-    [ -n "$val" ] || continue
-    if echo "$val" | grep -Eq 'sk-ant-api03|ghp_[A-Za-z0-9]{20,}|xoxb-|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}'; then
-      [ "$(sev_rank critical)" -ge "$MIN_RANK" ] && add "critical" mcp "$(basename "$f")" "mcp-env-secret" "MCP server '$(sanitize "$name")' env '$(sanitize "$key")' contains an embedded token" "Load from a secret store, not config"
-    elif echo "$key" | grep -Eq '(KEY|TOKEN|SECRET|PASSWORD)'; then
-      [ "$(sev_rank warn)" -ge "$MIN_RANK" ] && add "warn" mcp "$(basename "$f")" "mcp-env-keyname" "MCP server '$(sanitize "$name")' stores '$(sanitize "$key")' in plaintext config" "Prefer env injection at runtime"
-    fi
-  done < <(jq -r '.mcpServers | to_entries[]? | .key as $n | (.value.env // {}) | to_entries[]? | "\($n)\t\(.key)\t\(.value)"' "$f" 2>/dev/null)
+  # env values that look like secrets (value-pattern only — name-only matching
+  # false-positives on legitimate ANTHROPIC_API_KEY-style config)
+  while IFS=$'\t' read -r name key; do
+    [ -n "$key" ] || continue
+    [ "$(sev_rank critical)" -ge "$MIN_RANK" ] && add "critical" mcp "$(basename "$f")" "mcp-env-secret" "MCP server '$(sanitize "$name")' env '$(sanitize "$key")' contains an embedded token" "Load from a secret store, not config"
+  done < <(jq -r '.mcpServers | to_entries[]? | .key as $n | (.value.env // {}) | to_entries[]? | select(.value | test("sk-ant-api03|ghp_[A-Za-z0-9]{20,}|xoxb-|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}")) | "\($n)\t\(.key)"' "$f" 2>/dev/null)
 }
 
 # --- Category: grep over hooks/, skills/, CLAUDE.md ---
