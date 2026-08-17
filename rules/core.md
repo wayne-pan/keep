@@ -41,7 +41,6 @@ Target: trivial ≤2 turns, standard ≤3, complex: routed to `/keep:sprint` or 
 ### Guardrails
 - >30 tool calls: compress context, narrow focus
 - >10 files touched: split task or delegate to Agent
-- >80 tool calls: STOP, summarize, suggest fresh session
 
 ### Subagent Returns
 All subagents must return: `{"summary", "confidence": 0-1, "findings": [], "status": "done|need_more|error"}`. Summary ≤200 words.
