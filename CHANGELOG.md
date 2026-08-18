@@ -21,6 +21,7 @@ All notable changes to keep are documented here.
   - 4-stage quality gate in sprint (Format → Build → Test → Lint)
   - Independent evaluator agent in `/review` (Step 3.7)
   - Checkpoint-restart for sprints (`scripts/sprint-checkpoint.sh`)
+  - Sprint phase boundaries auto-continue in-session: checkpoint save → summarize → next phase (fresh-window suggestion removed)
   - Three-layer state classification for memory (immutable / append-only / overwritable)
 - **Integration**
   - `/analyze` skill — RLM-style chunk+parallel+merge pipeline for large artifacts

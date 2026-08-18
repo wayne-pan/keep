@@ -1,6 +1,6 @@
 ---
 name: keep:sprint
-version: "1.4"
+version: "1.5"
 triggers: ["/keep:sprint", "/keep:build feature", "/keep:ship feature", "/keep:implement feature", "/keep:add feature", "/keep:new module"]
 routes_to: ["review"]
 description: >
@@ -31,6 +31,8 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 | 8 | Reflect | FINDINGS.md + memory updated | inline |
 
 Skip phases 1-2 only for trivial tasks (1 file, <5 lines).
+
+**Phase Boundary Protocol** (every phase transition): `sprint-checkpoint save <phase> <step>` → summarize phase outcome into `.sprint/STATE.yaml` → auto-enter next phase. Context pressure never pauses the sprint for a window switch — `.sprint/` is disk-backed and compaction-safe; after any compaction, re-read `STATE.yaml` and continue from the recorded step.
 
 ## Resource Check (Research start)
 
