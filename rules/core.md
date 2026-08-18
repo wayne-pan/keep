@@ -38,10 +38,6 @@ Target: trivial ≤2 turns, standard ≤3, complex: routed to `/keep:sprint` or 
 - 3 same-type fails → STOP, escalate to user
 - Goal-driven verification (standard+complex, when test framework available): transform tasks into testable goals. "Add X" → "Write test for X, then make it pass". "Fix bug" → "Write reproducing test, then make it pass". For multi-step: state plan as `Step → verify: check`. Loop until goal met.
 
-### Guardrails
-- >30 tool calls: compress context, narrow focus
-- >10 files touched: split task or delegate to Agent
-
 ### Subagent Returns
 All subagents must return: `{"summary", "confidence": 0-1, "findings": [], "status": "done|need_more|error"}`. Summary ≤200 words.
 
