@@ -15,7 +15,6 @@ STATE_FILE="${SCOPE_STATE_DIR:-/tmp}/claude-scope-${SESSION_ID}"
 # Symlinked state file = /tmp pre-create attack; refuse read AND write
 [ -L "$STATE_FILE" ] && exit 0
 SOFT_BUDGET=30
-HARD_BUDGET=80
 DRIFT_THRESHOLD=10
 LOOP_THRESHOLD=3          # ECC parity: 3+ consecutive identical calls = stuck
 COMPACT_HINT_AT=25        # 5-turn runway before SOFT_BUDGET bites
@@ -74,14 +73,12 @@ if [ "$count" -ge "$COMPACT_HINT_AT" ] && [ "$compact_hint" != "1" ]; then
 fi
 
 # Budget warnings
-if [ "$count" -ge "$HARD_BUDGET" ]; then
-  msg="${msg:+$msg }[Scope] ⛔ Turn $count/$HARD_BUDGET. Files: $file_count. HARD LIMIT reached. STOP, summarize progress, suggest fresh session."
-elif [ "$count" -ge "$SOFT_BUDGET" ]; then
-  msg="${msg:+$msg }[Scope] ⚠️ Turn $count/$HARD_BUDGET. Files: $file_count. Soft budget passed — compress context, narrow focus."
+if [ "$count" -ge "$SOFT_BUDGET" ]; then
+  msg="${msg:+$msg }[Scope] ⚠️ Turn $count/$SOFT_BUDGET. Files: $file_count. Soft budget passed — compress context, narrow focus."
 fi
 
 # Drift detection
-if [ "$file_count" -ge "$DRIFT_THRESHOLD" ] && [ "$count" -lt "$HARD_BUDGET" ]; then
+if [ "$file_count" -ge "$DRIFT_THRESHOLD" ]; then
   if [ -n "$msg" ]; then
     msg="$msg "
   fi
