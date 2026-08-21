@@ -1,51 +1,40 @@
 # Disk-Driven State Machine
 
-All sprint state lives on disk in `.sprint/`. Context compaction is safe — state survives in files, not memory. This is inspired by GSD-2's disk-driven architecture where the filesystem is the source of truth.
+All sprint state lives on disk under `.sprint/` — one root, two scopes. Context compaction is safe — state survives in files, not memory. This is inspired by GSD-2's disk-driven architecture where the filesystem is the source of truth.
 
-Plan artifacts (PLAN.md, task briefs, reports, review packages) live in a **session temp dir**, not the project tree. The temp dir path is anchored in `.sprint/PLAN_TMP_PATH` so sibling commands rediscover it after `cd` shifts or context compaction.
+**One task = one directory.** Each sprint gets `.sprint/<task>/` (created at sprint start), so different tasks never overwrite each other's PLAN.md, STATE.yaml, briefs, or reports. The active task is named by the `.sprint/CURRENT` anchor, which sibling commands (`sprint-plan *`, `sprint-checkpoint *`) read back after `cd` shifts or context compaction.
 
-## Two Locations, Two Lifecycles
+## One Root, Two Scopes
 
-| Location | Holds | Lifecycle |
-|----------|-------|-----------|
-| `.sprint/` (project) | Phase state, decisions, knowledge, anchor | Created at Research start, deleted at Ship (preserve KNOWLEDGE/FINDINGS) |
-| Temp dir (cross-platform) | PLAN.md + per-task briefs/reports + review packages | Created at Plan start via `sprint-plan init`, cleared at Ship via `sprint-plan clear` |
+| Scope | Holds | Lifecycle |
+|-------|-------|-----------|
+| `.sprint/<task>/` | STATE.yaml, RESEARCH.md, DECISIONS.md, CHECKPOINT.yaml, STUCK.md, PLAN.md, briefs, reports, review packages | Created at sprint start via `sprint-plan init <name>`, deleted at Ship via `sprint-plan clear` |
+| `.sprint/` root | CURRENT anchor, KNOWLEDGE.md, FINDINGS.md, CODE_MAP.md, EXPERIMENTS.tsv, TRIPLETS.jsonl | Persists across sprints |
 
-## Cross-Platform Temp Dir Resolution
+## Per-Task Directories + Anchor Protocol
 
-`sprint-plan.sh` honors this precedence chain:
+`sprint-plan.sh` resolves the repo root via `git rev-parse` (so commands work from any subdirectory) and manages:
 
-```
-KEEP_SPRINT_TMP  >  TMPDIR  >  TEMP  >  TMP  >  /tmp
-```
+- `sprint-plan init [name]` — sanitizes the name (allowlist `[A-Za-z0-9._-]`, reserved names like `CURRENT`/`KNOWLEDGE.md` rejected), creates `.sprint/<name>/`, and writes the name to `.sprint/CURRENT`. No name → timestamped `sprint-<YYYYmmdd-HHMMSS>` (always a fresh dir). Re-running `init` with an existing name **resumes** that task — state intact.
+- Every consuming command reads `.sprint/CURRENT`, re-validates the name (blocking path traversal and reserved-name collisions), and resolves the absolute task dir. Missing anchor → clear error: `sprint-plan init <name>` first.
+- `sprint-plan list` shows all task dirs with the active one marked; `sprint-plan clear` removes only the active task dir + anchor.
 
-| Platform | What happens |
-|----------|-------------|
-| Linux | `$TMPDIR` set (or `/tmp`) — native |
-| macOS | `$TMPDIR` set by launchd to `/var/folders/.../T/` — native |
-| Windows native bash | `TMPDIR` unset; `$TEMP`/`$TMP` point to `%USERPROFILE%\AppData\Local\Temp` — picked up |
-| Git Bash / MSYS2 | Both `/tmp` (mapped) and `$TEMP` work; chain prefers env vars |
-| Cygwin | `$TMPDIR` usually set; falls through to `/tmp` |
-| WSL | Native Linux semantics |
-
-The chosen path is resolved once at `sprint-plan init` and stored as an absolute path in `.sprint/PLAN_TMP_PATH`. Subsequent commands read the anchor — so later env changes or `cd` shifts don't break the path.
-
-## State Files (`.sprint/`)
+## State Files (task dir unless noted)
 
 | File | Purpose | Updated by |
 |------|---------|-----------|
 | `STATE.yaml` | Current phase, progress, file lists | Every phase transition |
 | `RESEARCH.md` | Compressed research findings | Research phase |
 | `DECISIONS.md` | Architecture decisions + rationale | Plan phase, ad-hoc |
-| `KNOWLEDGE.md` | Project-specific knowledge (append-only) | Any phase |
-| `FINDINGS.md` | Cross-session insights (append-only) | Reflect phase |
-| `EXPERIMENTS.tsv` | Benchmark experiment log (iteration, metric, delta, status) | Benchmark runs |
-| `TRIPLETS.jsonl` | Structured test triplets (state, action, reward) for regression tracking | Test phase |
+| `KNOWLEDGE.md` *(root)* | Project-specific knowledge (append-only, cross-sprint) | Any phase |
+| `FINDINGS.md` *(root)* | Cross-session insights (append-only, cross-sprint) | Reflect phase |
+| `EXPERIMENTS.tsv` *(root)* | Benchmark experiment log (iteration, metric, delta, status) | Benchmark runs |
+| `TRIPLETS.jsonl` *(root)* | Structured test triplets (state, action, reward) for regression tracking | Test phase |
 | `CHECKPOINT.yaml` | Phase boundary checkpoint (see schema below) | Each phase boundary |
 | `STUCK.md` | Stuck detection diagnosis | When stuck detected |
-| `PLAN_TMP_PATH` | Anchor: absolute path to the session's temp plan dir | `sprint-plan init` / `sprint-plan clear` |
+| `CURRENT` *(root)* | Anchor: name of the active task | `sprint-plan init` / `sprint-plan clear` |
 
-## Plan Artifacts (temp dir)
+## Plan Artifacts (task dir)
 
 | File | Purpose | Written by |
 |------|---------|-----------|
@@ -151,13 +140,13 @@ Append-only — never delete, only add. This accumulates project knowledge acros
 3. Continue from where left off
 
 ### Cleanup
-- Delete `.sprint/` directory at Ship phase completion (after Reflect)
-- KNOWLEDGE.md and FINDINGS.md may be preserved in project root if valuable
-- Clear temp plan dir: `sprint-plan clear` (removes PLAN.md, all briefs, reports, review packages, and the `.sprint/PLAN_TMP_PATH` anchor)
+- `sprint-plan clear` at Ship phase completion (after Reflect) — removes the active task dir (STATE, PLAN, briefs, reports, review packages, CHECKPOINT) and the `.sprint/CURRENT` anchor
+- `.sprint/` root persists: KNOWLEDGE.md and FINDINGS.md accumulate across sprints
+- Other task dirs (abandoned or past sprints) are untouched — inspect via `sprint-plan list`
 
 ## CHECKPOINT.yaml Schema
 
-Saved at each phase boundary by `sprint-checkpoint save <phase> <step>`. On sprint start, `sprint-checkpoint resume` returns the most recent checkpoint (or `none`).
+Saved at each phase boundary by `sprint-checkpoint save <phase> <step>` into the active task dir. On sprint start, `sprint-checkpoint resume` returns the active task's checkpoint (or `none`).
 
 ```yaml
 phase: implement

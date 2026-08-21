@@ -21,8 +21,8 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 
 | # | Phase | Done when | Detail |
 |---|-------|-----------|--------|
-| 1 | Research | Findings in `.sprint/RESEARCH.md`, gaps documented | `references/context-engineering.md` |
-| 2 | Plan | Structured `PLAN.md` written to temp dir (Task/Step/Interfaces); plan-review sub-agent passes | Design It Twice + Plan Review Gate + Plan Document below |
+| 1 | Research | Task dir created (`sprint-plan init <slug>`), findings in `.sprint/<task>/RESEARCH.md`, gaps documented | `references/context-engineering.md` |
+| 2 | Plan | Structured `PLAN.md` written to `.sprint/<task>/` (Task/Step/Interfaces); plan-review sub-agent passes | Design It Twice + Plan Review Gate + Plan Document below |
 | 3 | Implement | All planned modules pass validation ladder | `references/validation-ladder.md`, `references/subagent-strategy.md` |
 | 4 | Quality Gate | Format → Build → Test → Lint all pass | table below |
 | 5 | Review | `/keep:review` findings addressed or deferred | `/keep:review` skill |
@@ -32,7 +32,9 @@ Structured development sprint: Research → Plan → Implement → Quality Gate 
 
 Skip phases 1-2 only for trivial tasks (1 file, <5 lines).
 
-**Phase Boundary Protocol** (every phase transition): `sprint-checkpoint save <phase> <step>` → summarize phase outcome into `.sprint/STATE.yaml` → auto-enter next phase. Context pressure never pauses the sprint for a window switch — `.sprint/` is disk-backed and compaction-safe; after any compaction, re-read `STATE.yaml` and continue from the recorded step.
+**Phase Boundary Protocol** (every phase transition): `sprint-checkpoint save <phase> <step>` → summarize phase outcome into the task dir's `STATE.yaml` (`$(sprint-plan path)/STATE.yaml`) → auto-enter next phase. Context pressure never pauses the sprint for a window switch — `.sprint/` is disk-backed and compaction-safe; after any compaction, re-read `STATE.yaml` and continue from the recorded step.
+
+**Sprint start (before Research)**: `sprint-plan init <task-slug>` — derive the slug from the feature name (e.g. `dry-run-flag`). Creates `.sprint/<task-slug>/` + anchors it in `.sprint/CURRENT`. One task = one directory: different sprints never overwrite each other's PLAN.md/STATE.yaml. Re-running `init` with an existing name resumes that task with all state intact.
 
 ## Resource Check (Research start)
 
@@ -76,7 +78,7 @@ Checkpoint: `sprint-checkpoint save quality-gate <stage>` at each stage transiti
 Before entering next phase, verify:
 
 - **Research→Plan**: critical files read; unknowns documented; RESEARCH.md written
-- **Plan→Implement**: plan-review sub-agent passed PLAN.md (verdict logged in `.sprint/STATE.yaml`); every task has Files / Interfaces / Steps; test plan defined; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
+- **Plan→Implement**: plan-review sub-agent passed PLAN.md (verdict logged in `.sprint/<task>/STATE.yaml`); every task has Files / Interfaces / Steps; test plan defined; **atomicity** (each change = one sentence without "and"); **scope** (5+ files → warn, consider splitting)
 - **Implement→Review**: Quality Gate passed; no incomplete markers in changed code; validation ladder passed for every file
 - **Review→Test**: review findings addressed; no unresolved critical/high severity issues
 
@@ -100,11 +102,11 @@ Uses vocabulary from `rules/architecture-language.md`: module, interface, seam, 
 
 ## Plan Document (Phase 2 output)
 
-After Design It Twice, write a structured PLAN.md to the **temp dir** (never the project tree — keeps git status clean). Plan artifacts are session-scoped and disposable.
+After Design It Twice, write a structured PLAN.md to the **task dir** (`.sprint/<task>/` — gitignored, one dir per task, disposable at Ship).
 
 ```bash
-# One-time per sprint: create session plan dir + anchor
-sprint-plan init
+# At sprint start (before Research) — create the per-task dir + anchor:
+sprint-plan init <task-slug>
 
 # Write PLAN.md from your drafted content
 sprint-plan write-plan << 'EOF'
@@ -167,46 +169,45 @@ After writing PLAN.md, spawn **1 fresh sub-agent** (different context — not th
 **Output**: `pass` OR `fail` with a numbered list (each item: file/section + what's wrong + concrete fix).
 
 **Flow**:
-- `pass` → log `plan_review: pass` to `.sprint/STATE.yaml`, auto-enter Implement.
+- `pass` → log `plan_review: pass` to `.sprint/<task>/STATE.yaml`, auto-enter Implement.
 - `fail` → Claude applies each fix directly to PLAN.md, re-spawns a fresh review sub-agent. **Max 2 rounds**; still failing → STOP, present PLAN.md + remaining findings to user.
 
 **Anti-rationalization**: the coordinator reviewing its own plan does not count — self-approval is the trap this gate exists to break. The sub-agent must be fresh (no shared context with the planner).
 
-**Cross-platform temp dir**: `sprint-plan` honors `KEEP_SPRINT_TMP > TMPDIR > TEMP > TMP > /tmp` — works on Linux, macOS, Windows-native bash, Git Bash, Cygwin. The chosen path is anchored in `.sprint/PLAN_TMP_PATH` so sibling commands rediscover it after `cd` shifts.
+**Cleanup**: `sprint-plan clear` at Ship phase (after Reflect). Removes the active task dir + anchor file.
 
-**Cleanup**: `sprint-plan clear` at Ship phase (after Reflect). Removes the temp dir + anchor file.
+## State Management (Disk-Driven, Per-Task)
 
-## State Management (Disk-Driven)
+Everything lives under `.sprint/` — one root, two scopes:
 
-Two distinct locations, two distinct lifecycles — don't conflate them:
+| Scope | Path | Holds | Lifecycle |
+|-------|------|-------|-----------|
+| Per-task | `.sprint/<task>/` | STATE.yaml, RESEARCH.md, DECISIONS.md, CHECKPOINT.yaml, PLAN.md, briefs, reports, review packages | Created at sprint start, deleted at Ship |
+| Cross-sprint | `.sprint/` root | KNOWLEDGE.md, FINDINGS.md, CODE_MAP.md, CURRENT anchor | Persists across sprints |
 
-| Location | Purpose | Lifecycle |
-|----------|---------|-----------|
-| `.sprint/` (project) | Phase state, decisions, knowledge | Per-sprint, deleted at Ship (preserve KNOWLEDGE/FINDINGS) |
-| Temp dir (`sprint-plan path`) | PLAN.md, task briefs, reports, review packages | Per-sprint, cleared at Ship |
-
-`.sprint/` is the source of truth for **state** — context compaction is safe. The temp dir holds **plan artifacts** that subagents consume as files (not pasted text). Full schemas and lifecycle: `references/state-machine.md`.
+One task = one directory — two sprints in the same repo never overwrite each other. `.sprint/` is gitignored and disk-backed, so context compaction is safe. Subagents consume plan artifacts as files (not pasted text). Full schemas and lifecycle: `references/state-machine.md`.
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `STATE.yaml` | `.sprint/` | Phase, progress, recent actions |
-| `RESEARCH.md` | `.sprint/` | Compressed research findings |
-| `DECISIONS.md` | `.sprint/` | Architecture decisions + rationale |
-| `KNOWLEDGE.md` | `.sprint/` | Project knowledge (append-only, cross-sprint) |
-| `FINDINGS.md` | `.sprint/` | Cross-session insights (append-only, cross-sprint) |
-| `CHECKPOINT.yaml` | `.sprint/` | Phase transition checkpoint |
-| `PLAN_TMP_PATH` | `.sprint/` | Anchor: absolute path to session's temp plan dir |
-| `PLAN.md` | temp dir | Structured implementation plan (Phase 2 output) |
-| `task-N-brief.md` | temp dir | Per-task slice subagents read instead of full plan |
-| `task-N-report.md` | temp dir | Per-task implementer report |
-| `review-*.md` | temp dir | Diff packages for reviewer subagents |
+| `CURRENT` | `.sprint/` root | Anchor: name of the active task |
+| `STATE.yaml` | task dir | Phase, progress, recent actions |
+| `RESEARCH.md` | task dir | Compressed research findings |
+| `DECISIONS.md` | task dir | Architecture decisions + rationale |
+| `KNOWLEDGE.md` | `.sprint/` root | Project knowledge (append-only, cross-sprint) |
+| `FINDINGS.md` | `.sprint/` root | Cross-session insights (append-only, cross-sprint) |
+| `CHECKPOINT.yaml` | task dir | Phase transition checkpoint |
+| `PLAN.md` | task dir | Structured implementation plan (Phase 2 output) |
+| `task-N-brief.md` | task dir | Per-task slice subagents read instead of full plan |
+| `task-N-report.md` | task dir | Per-task implementer report |
+| `review-*.md` | task dir | Diff packages for reviewer subagents |
 
 ```bash
+sprint-plan init <task-slug>               # at sprint start (before Research)
 sprint-checkpoint save <phase> <step>     # at each phase transition
 sprint-checkpoint resume                  # on sprint start
-sprint-plan init                          # at Plan phase start
 sprint-plan write-plan << 'EOF' ... EOF   # after Design It Twice
 sprint-plan task-brief <N>                # before dispatching task N implementer
+sprint-plan list                          # see all task dirs (active marked)
 sprint-plan clear                         # at Ship phase (after Reflect)
 ```
 
@@ -226,7 +227,7 @@ SESSION_ID=$(cat .sprint/SESSION_ID 2>/dev/null || echo "default")
 [ -f "/tmp/keep-stop-${SESSION_ID}" ] && { echo "STOP: $(cat /tmp/keep-stop-${SESSION_ID})"; rm -f "/tmp/keep-stop-${SESSION_ID}"; }
 ```
 
-**Stuck detection** (track `recent_actions` in STATE.yaml): same error 2+ times → `.sprint/STUCK.md`, try alternative. Loop pattern → stop. No progress after 3 iterations → suggest fresh context.
+**Stuck detection** (track `recent_actions` in STATE.yaml): same error 2+ times → `.sprint/<task>/STUCK.md`, try alternative. Loop pattern → stop. No progress after 3 iterations → suggest fresh context.
 
 **Fork recursion guard.** Subagents spawning subagents must have a depth limit (max 2 levels). Without guard: exponential context cost, timeout cascades, stale references. Pattern: pass `--max-depth N` or check parent context before delegating.
 

@@ -19,7 +19,7 @@ Context is working memory, not storage — budget it like RAM.
 - **Research phase output** must be compressed — no raw tool output in research notes
 - **Plan phase** must include specific file paths and line numbers — no vague directives
 - **Implement phase** must discard subagent raw output immediately after use
-- Each phase boundary: `sprint-checkpoint save <phase> <step>` → summarize phase outcome into `.sprint/` → auto-enter next phase. Never pause to suggest a fresh window
+- Each phase boundary: `sprint-checkpoint save <phase> <step>` → summarize phase outcome into the task dir (`.sprint/<task>/STATE.yaml`) → auto-enter next phase. Never pause to suggest a fresh window
 - Context pressure at a boundary is handled by compaction, not session switching: checkpoint first (`.sprint/` is disk-backed and compaction-safe), let auto-compact run, re-read STATE.yaml, continue
 
 ## Task Management

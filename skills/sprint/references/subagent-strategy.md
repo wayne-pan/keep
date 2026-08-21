@@ -28,8 +28,8 @@ A real plan runs 5-15k tokens. A subagent reading it (a) pollutes its context wi
 
 ```bash
 # 1. Coordinator: extract the task slice into its own file
-BRIEF=$(sprint-plan task-brief 3)          # writes <temp>/task-3-brief.md, prints path
-REPORT=$(sprint-plan task-report 3)        # writes <temp>/task-3-report.md, prints path
+BRIEF=$(sprint-plan task-brief 3)          # writes <task-dir>/task-3-brief.md, prints path
+REPORT=$(sprint-plan task-report 3)        # writes <task-dir>/task-3-report.md, prints path
 
 # 2. Dispatch implementer with file paths + scene-setting (1-2 lines)
 #    Do NOT paste plan content into the dispatch prompt.
@@ -58,7 +58,7 @@ PKG=$(sprint-plan review-package "$BASE" "$HEAD")   # writes review-<BASE>-<HEAD
 | "It's faster to paste the task into the prompt" | Pastes stay in your context forever; file paths don't |
 | "Subagent needs the whole plan for context" | It needs its task + the interfaces it consumes. Nothing else. |
 | "Let me paste the spec section too" | Put spec excerpts into the brief via Plan phase, not ad-hoc in dispatch |
-| "Subagent should read .sprint/PLAN_TMP_PATH" | Anchor file is for the coordinator's `sprint-plan` commands, not subagents |
+| "Subagent should read .sprint/CURRENT" | Anchor file is for the coordinator's `sprint-plan` commands, not subagents |
 | "I'll let the implementer read PLAN.md this once" | One read becomes a pattern. Slice it. |
 | "Skip the review package, just give the diff inline" | Inline diffs bloat your context; reviewers prefer one file |
 
@@ -70,7 +70,7 @@ PKG=$(sprint-plan review-package "$BASE" "$HEAD")   # writes review-<BASE>-<HEAD
 - **Don't summarize subagent output twice** — once in main context is enough
 - **Don't paste prior-task summaries into later dispatches** — a real session hit 42k chars, 99% pasted history. The brief is the brief.
 - **Don't dispatch a task without a diff file for the reviewer** — generate `sprint-plan review-package BASE HEAD` first
-- **Don't re-dispatch tasks the ledger already marks complete** — check `.sprint/STATE.yaml` recent_actions + `git log` after any compaction
+- **Don't re-dispatch tasks the ledger already marks complete** — check `.sprint/<task>/STATE.yaml` recent_actions + `git log` after any compaction
 
 ## Handling Implementer Status
 

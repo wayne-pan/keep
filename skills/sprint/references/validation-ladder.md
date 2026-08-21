@@ -45,7 +45,7 @@ When validation fails:
 2. Fix the root cause, not the symptom
 3. Re-run validation
 4. If same error persists after 1 retry → different approach needed
-5. After 2 retries on same error → STOP, write to `.sprint/STUCK.md`, escalate
+5. After 2 retries on same error → STOP, write to `.sprint/<task>/STUCK.md`, escalate
 
 ## Validation in Subagents
 

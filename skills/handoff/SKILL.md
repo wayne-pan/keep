@@ -132,7 +132,7 @@ _Previous session checkpoint: mcp memory #NNNNN (if any)_
 ## Pointers (do not duplicate — read these)
 
 - PRD: `docs/prd/orders-cancellation.md`
-- Plan: `.sprint/PLAN.md`
+- Plan: `.sprint/<task>/PLAN.md` (task dir via `sprint-plan path`)
 - Prior review: `<commit sha>` / `mcp__mind__search "orders-cancellation-review"`
 
 ## Environment notes

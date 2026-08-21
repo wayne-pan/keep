@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # sprint-checkpoint.sh — Sprint state persistence with resume capability.
-# Manages .sprint/CHECKPOINT.yaml for checkpoint-restart.
+# Manages .sprint/<task>/CHECKPOINT.yaml for checkpoint-restart (per-task dir,
+# resolved via the sibling sprint-plan.sh anchor — see .sprint/CURRENT).
 #
 # Usage:
 #   sprint-checkpoint save [phase] [step]  — Save checkpoint
@@ -10,8 +11,13 @@
 
 set -euo pipefail
 
-SPRINT_DIR=".sprint"
-CHECKPOINT="$SPRINT_DIR/CHECKPOINT.yaml"
+# Active task dir comes from sprint-plan (single source of truth for the anchor).
+PLAN_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sprint-plan.sh"
+if ! TASK_DIR=$("$PLAN_SCRIPT" path); then
+  echo "No active sprint task. Run: sprint-plan init <name>" >&2
+  exit 1
+fi
+CHECKPOINT="$TASK_DIR/CHECKPOINT.yaml"
 
 cmd="${1:-}"
 shift || true
@@ -21,7 +27,7 @@ case "$cmd" in
     phase="${1:-unknown}"
     step="${2:-}"
     files_modified="${3:-}"
-    mkdir -p "$SPRINT_DIR"
+    mkdir -p "$TASK_DIR"
     cat > "$CHECKPOINT" << EOF
 phase: $phase
 step: "$step"
