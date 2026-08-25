@@ -12,7 +12,16 @@
 set -euo pipefail
 
 # Active task dir comes from sprint-plan (single source of truth for the anchor).
-PLAN_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sprint-plan.sh"
+# Chase symlinks before resolving the sibling: PATH installs invoke this script
+# via $LOCAL_BIN/sprint-checkpoint → ~/.claude/scripts/sprint-checkpoint.sh →
+# repo, so sprint-plan.sh must be looked up next to the real file, not in the
+# symlink's directory (where only the extension-less 'sprint-plan' exists).
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in /*) SELF="$LINK" ;; *) SELF="$(dirname "$SELF")/$LINK" ;; esac
+done
+PLAN_SCRIPT="$(cd -P "$(dirname "$SELF")" && pwd)/sprint-plan.sh"
 if ! TASK_DIR=$("$PLAN_SCRIPT" path); then
   echo "No active sprint task. Run: sprint-plan init <name>" >&2
   exit 1
