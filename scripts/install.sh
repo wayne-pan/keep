@@ -911,13 +911,35 @@ for subdir in storage search tools codeparse dream; do
   done
 done
 
-# Python venv for mind
+# Python venv for mind — mcp requires Python >=3.10; macOS default python3 is often 3.9
 if ! [ -d "$MIND_DIR/venv" ] || ! "$MIND_DIR/venv/bin/python3" -c "import mcp" 2>/dev/null; then
   info "Setting up mind venv..."
-  python3 -m venv "$MIND_DIR/venv" 2>/dev/null
-  "$MIND_DIR/venv/bin/pip" install --quiet mcp 2>/dev/null
+  rm -rf "$MIND_DIR/venv"
+  MIND_PY=""
+  for cand in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$cand" &>/dev/null && "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+      MIND_PY="$cand"
+      break
+    fi
+  done
+  if [ -n "$MIND_PY" ]; then
+    "$MIND_PY" -m venv "$MIND_DIR/venv" 2>/dev/null || true
+  elif command -v uv &>/dev/null; then
+    info "No system Python >=3.10, using uv-managed Python..."
+    uv venv --python 3.12 --seed "$MIND_DIR/venv" 2>/dev/null || true
+  else
+    warn "mind venv: no Python >=3.10 found (mcp requires it); install one or rerun after uv is on PATH"
+  fi
+  if [ -x "$MIND_DIR/venv/bin/pip" ]; then
+    "$MIND_DIR/venv/bin/pip" install --quiet mcp \
+      || warn "mind venv: pip install mcp failed — rerun with visible output: $MIND_DIR/venv/bin/pip install mcp"
+  fi
+  "$MIND_DIR/venv/bin/python3" -c "import mcp" 2>/dev/null \
+    && ok "mind MCP server ($MIND_DIR)" \
+    || warn "mind MCP server: venv unusable (mcp not importable)"
+else
+  ok "mind MCP server ($MIND_DIR)"
 fi
-ok "mind MCP server ($MIND_DIR)"
 
 # ================================================================
 # Phase 4: Settings + Smoke Test
