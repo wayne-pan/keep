@@ -11,6 +11,7 @@
 #
 # Optional env vars:
 #   CLAUDE_VERSION    — Claude Code version (default: 2.1.77)
+#   NODE_VERSION      — Node.js version (default: 22.22.1, must be v22.x)
 #   SKIP_SMOKE_TEST   — Set to "1" to skip smoke tests
 #
 # Post-install: configure model and API key
@@ -22,6 +23,7 @@ set -euo pipefail
 
 # ── Config ──
 CLAUDE_VERSION="${CLAUDE_VERSION:-2.1.77}"
+NODE_VERSION="${NODE_VERSION:-22.22.1}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOCAL_BIN="$HOME/.local/bin"
@@ -380,31 +382,31 @@ install_system_deps() {
   for cmd in git curl jq; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
   done
-  # node/npm checked separately below
-  if [ ${#missing[@]} -eq 0 ] && command -v node &>/dev/null; then
+  # node/npm installed in Phase 2 (version-pinned), not from distro repos
+  if [ ${#missing[@]} -eq 0 ]; then
     return
   fi
-  info "Installing system deps: ${missing[*]:-none} + node/npm if needed"
+  info "Installing system deps: ${missing[*]}"
   case "$PLATFORM" in
     ubuntu)
       sudo apt-get update -qq
-      sudo apt-get install -y -qq git curl nodejs npm jq 2>/dev/null || true
+      sudo apt-get install -y -qq git curl jq 2>/dev/null || true
       ;;
     arch)
-      sudo pacman -Sy --noconfirm --needed git curl nodejs npm jq 2>/dev/null || true
+      sudo pacman -Sy --noconfirm --needed git curl jq 2>/dev/null || true
       ;;
     macos)
       if command -v brew &>/dev/null; then
-        brew install git curl node jq 2>/dev/null || true
+        brew install git curl jq 2>/dev/null || true
       else
         warn "No Homebrew found; skipping system deps. Install manually if needed."
       fi
       ;;
     fedora)
-      sudo dnf install -y git curl nodejs npm jq 2>/dev/null || true
+      sudo dnf install -y git curl jq 2>/dev/null || true
       ;;
     linux-generic)
-      warn "Unknown Linux distro; install git curl node npm jq manually."
+      warn "Unknown Linux distro; install git curl jq manually."
       ;;
   esac
 }
@@ -435,16 +437,36 @@ install_ugrep
 # ================================================================
 phase "Phase 2/4: Claude Code + mx + NTO"
 
-# ── Node.js ──
-if ! command -v node &>/dev/null; then
-  info "Installing Node.js via nvm..."
-  if [ ! -d "$HOME/.nvm" ]; then
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+# ── Node.js v22 (NodeSource on Ubuntu/Debian; official binary elsewhere, with fallback) ──
+install_node22() {
+  if command -v node &>/dev/null; then
+    if [[ "$(node -v)" == v22.* ]]; then
+      ok "Node.js $(node -v) (already installed)"
+    else
+      warn "Existing Node.js $(node -v) is not v22; keeping it"
+    fi
+    return 0
   fi
-  export NVM_DIR="$HOME/.nvm"
-  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-  nvm install --lts
-fi
+  local os arch
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"   # linux | darwin
+  case "$(uname -m)" in
+    x86_64)       arch=x64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) die "Unsupported CPU arch for Node binary: $(uname -m)" ;;
+  esac
+  if [ "$PLATFORM" = "ubuntu" ]; then
+    info "Installing Node.js v22 via NodeSource..."
+    if curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -; then
+      sudo apt-get install -y -qq nodejs && return 0
+    fi
+    warn "NodeSource failed; falling back to official binary"
+  fi
+  info "Installing Node.js v${NODE_VERSION} from official binary..."
+  curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${os}-${arch}.tar.gz" \
+    | sudo tar -xz -C /usr/local --strip-components=1
+}
+install_node22
+command -v node &>/dev/null || die "Node.js installation failed"
 ok "Node.js $(node -v)"
 
 # ── Claude Code ──
