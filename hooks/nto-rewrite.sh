@@ -83,7 +83,10 @@ fi
 [ -z "$REWRITTEN" ] && exit 0
 
 # ── Build hook response ──
-UPDATED_INPUT=$(echo "$INPUT" | jq -c '.tool_input.command = $cmd' --arg cmd "$REWRITTEN")
+# updatedInput must be the TOOL INPUT object ({"command": ...}) — not the whole
+# hook envelope. The harness validates it against the Bash tool schema and
+# rejects the call ("required parameter command is missing") otherwise.
+UPDATED_INPUT=$(echo "$INPUT" | jq -c --arg cmd "$REWRITTEN" '.tool_input.command = $cmd | .tool_input')
 
 jq -n \
   --argjson updated "$UPDATED_INPUT" \
