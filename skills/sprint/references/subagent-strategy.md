@@ -64,6 +64,7 @@ PKG=$(sprint-plan review-package "$BASE" "$HEAD")   # writes review-<BASE>-<HEAD
 
 ### Anti-patterns
 
+- **Don't use worktrees** — no `EnterWorktree`, no `isolation: "worktree"` on dispatched agents. Implementers work in the main tree so `.sprint/` briefs, reports, commits, and review packages stay coherent
 - **Don't spawn subagents that read the same files** — coordinate targets
 - **Don't let subagents write to the same files** — partition by module
 - **Don't pass full file contents to subagents** — give them file paths and let them read

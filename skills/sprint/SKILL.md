@@ -1,6 +1,6 @@
 ---
 name: keep:sprint
-version: "1.5"
+version: "1.6"
 triggers: ["/keep:sprint", "/keep:build feature", "/keep:ship feature", "/keep:implement feature", "/keep:add feature", "/keep:new module"]
 routes_to: ["review"]
 description: >
@@ -215,6 +215,7 @@ KV store: `kv-set`/`kv-get` shares artifacts between subagents; `kv-clear` at co
 
 ## Safety
 
+- **No worktrees** — all work happens in the main working tree. Never call `EnterWorktree`, never dispatch subagents with `isolation: "worktree"`. Sprint state (`.sprint/` artifacts, commits, review packages) must land in the main tree; a worktree fork strands them.
 - **Ask before destructive ops** (force push, drop table, rm -rf)
 - **Never push to main/master** without explicit approval
 - **Two same-type failures** → STOP, ask user
