@@ -990,11 +990,15 @@ done
 # ── settings.json (merge, never overwrite) ──
 SETTINGS="$CLAUDE_DIR/settings.json"
 info "Configuring settings.json..."
-python3 - "$SETTINGS" "$CLAUDE_DIR" << 'PYEOF'
-import json, sys, os
+python3 - "$SETTINGS" << 'PYEOF'
+import json, re, sys
 
-settings_path, claude_dir = sys.argv[1], sys.argv[2]
-H = f"{claude_dir}/hooks"
+settings_path = sys.argv[1]
+# Literal $HOME (expanded by the shell at hook-execution time), NOT the
+# absolute path of the installing machine — settings.json syncs across
+# machines and an absolute path breaks everywhere except where it was
+# generated.
+H = "$HOME/.claude/hooks"
 
 def get_defaults():
     return {
@@ -1106,9 +1110,18 @@ def merge_hooks(existing, defaults):
                         if hook.get("command") not in cmds:
                             new_hooks.append(hook)
                             cmds.add(hook.get("command"))
-                    if len(new_hooks) != len(eg.get("hooks", [])):
-                        groups[i] = dict(eg)
-                        groups[i]["hooks"] = new_hooks
+                    # collapse within-group duplicates — normalization can
+                    # turn previously-distinct absolute paths into
+                    # identical commands
+                    seen = set()
+                    new_hooks = [h for h in new_hooks
+                                 if h.get("command") not in seen
+                                 and not seen.add(h.get("command"))]
+                    # assign unconditionally: dedup removals can cancel
+                    # default-hook appends, making lengths equal while the
+                    # content still changed
+                    groups[i] = dict(eg)
+                    groups[i]["hooks"] = new_hooks
                     merged = True
                     break
             if not merged:
@@ -1145,6 +1158,36 @@ try:
         existing = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError):
     existing = {}
+
+# Normalize any absolute */.claude/hooks/ path (written by an older install
+# on this or another machine, or by manual repair) to the portable $HOME
+# form BEFORE merging — merge_hooks dedups by command string, and
+# "/home/x/...", "/Users/x/...", "$HOME/..." of the same script are three
+# distinct strings that would otherwise all be kept.
+def normalize_hooks(s):
+    hooks = s.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+    for groups in hooks.values():
+        if not isinstance(groups, list):
+            continue
+        for g in groups:
+            if not isinstance(g, dict):
+                continue
+            for h in g.get("hooks", []):
+                if not isinstance(h, dict):
+                    continue
+                cmd = h.get("command")
+                # guard: a null command (hand-edited file) must not crash
+                # the installer; a missing one must not gain an empty key
+                if isinstance(cmd, str):
+                    h["command"] = re.sub(
+                        r"[\"']?[^\s'\"]*/\.claude/hooks/([^\s'\"]*)[\"']?",
+                        r"$HOME/.claude/hooks/\1",
+                        cmd,
+                    )
+
+normalize_hooks(existing)
 
 merged = deep_merge(existing, get_defaults())
 
@@ -1239,6 +1282,8 @@ for event, groups in settings.get('hooks', {}).items():
             cmd = h.get('command', '')
             # first token is the script path (strip args like "tool-cache.sh pre")
             script = cmd.split()[0] if cmd else ''
+            # expand $HOME-form refs so they're checked like absolute ones
+            script = os.path.expandvars(script)
             if script.startswith(H + '/') and not os.path.exists(script):
                 dangling.append(os.path.basename(script))
 print('\n'.join(dangling))
