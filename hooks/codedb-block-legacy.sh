@@ -1,7 +1,8 @@
 #!/bin/bash
 # codedb PreToolUse guard. Nudges agents from native file tools to codedb —
 # but ONLY inside a codedb-indexed repo, and never for paths outside it.
-# Fail-open by design (a nudge, not a wall). Disable entirely: CODEDB_NO_HOOKS=1.
+# Fail-open by design (a nudge, not a wall). Disable entirely: CODEDB_NO_HOOKS=1
+# (exported, or as an inline `CODEDB_NO_HOOKS=1 <cmd>` prefix).
 [ -n "$CODEDB_NO_HOOKS" ] && exit 0
 [ -f "$HOME/.codedb/no-hooks" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
@@ -10,6 +11,15 @@ command -v codedb >/dev/null 2>&1 || exit 0
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 [ -z "$CMD" ] && exit 0
+
+# Escape hatch 2: inline `CODEDB_NO_HOOKS=1 <cmd>` prefix. The assignment
+# scopes to the spawned command only — it never reaches this hook process's
+# env — so recognize it textually at the head of the command string (after an
+# optional `env` and any other leading VAR=value assignments). Empty value
+# (=) does not disable, matching the `-n` check above.
+printf '%s' "$CMD" | grep -qE \
+  '^[[:space:]]*(env[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*CODEDB_NO_HOOKS=[^[:space:]]+' \
+  && exit 0
 
 STRIPPED=$(echo "$CMD" | sed -E 's/^[[:space:]]*(env|sudo|command|builtin|exec|nohup)[[:space:]]+//')
 STRIPPED=$(echo "$STRIPPED" | sed -E 's/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+//')
