@@ -9,8 +9,9 @@ description: >
   machines", when context is approaching the smart-zone ceiling and a fork is
   safer than a compact, or when the UserPromptSubmit early-warning hook directs
   a pre-compact snapshot (handoff-gate.sh blocks compaction until one exists —
-  handoff ALWAYS precedes compact). After writing, chain to /compact unless this
-  is a machine-switch fork. Output goes to OS tmp (never the repo). Differs from
+  handoff ALWAYS precedes compact). After writing, direct the user to run
+  /compact (unless machine-switch fork — agents cannot invoke built-ins).
+  Output goes to OS tmp (never the repo). Differs from
   /compact (continue in same session) and from session-checkpoint (which writes
   to memory for the resume protocol). Do NOT trigger for: end-of-task cleanup
   (use /keep:sprint Phase 8 Reflect), or when the work is fully shipped.

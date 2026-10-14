@@ -26,7 +26,7 @@ cat >/dev/null
 TMP="${TMPDIR:-/tmp}"
 
 FRESH=$(python3 - "$TMP" "$GATE_FRESH_MIN" << 'PYEOF'
-import sys, time, pathlib
+import sys, os, time, pathlib
 
 tmp, fresh_min = sys.argv[1], int(sys.argv[2])
 now = time.time()
@@ -35,9 +35,12 @@ for p in pathlib.Path(tmp).glob("keep-handoff-*.md"):
     if p.is_symlink():          # symlink = pre-create attack; ignore
         continue
     try:
-        age = now - p.stat().st_mtime
+        st = p.stat()
     except OSError:
         continue
+    if st.st_uid != os.getuid():   # planted by another uid; ignore
+        continue
+    age = now - st.st_mtime
     if best is None or age < best:
         best = age
 print("1" if best is not None and best <= fresh_min * 60 else "0")

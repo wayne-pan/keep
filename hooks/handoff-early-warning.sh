@@ -4,12 +4,13 @@
 # fresh handoff doc exists before compaction fires (handoff-gate.sh enforces
 # the ordering; this hook is what drives the handoff to happen).
 #
-# Token estimate: transcript JSONL, last assistant message usage (same
-# technique as scripts/statusline.py; docs warn the transcript may lag the
-# in-memory conversation — acceptable for an early-warning threshold).
+# Token estimate: transcript JSONL, last assistant message usage (approximates
+# scripts/statusline.py — raw usage sum, no model-window clamp; docs warn the
+# transcript may lag the in-memory conversation — fine for an early warning).
 # Threshold mirrors statusline's get_compact_config():
 #   limit = CLAUDE_CODE_AUTO_COMPACT_WINDOW * CLAUDE_AUTOCOMPACT_PCT_OVERRIDE / 100
-# so the statusline cap bar and this warning always agree.
+# so the statusline cap bar and this warning always agree. DISABLE_AUTO_COMPACT
+# disables this warning too.
 #
 # Re-nags every prompt while over threshold until a handoff doc fresher than
 # DOC_FRESH_MIN exists (< GATE_FRESH_MIN, so a doc written on warning always
@@ -19,6 +20,8 @@ set -euo pipefail
 
 WARN_PCT=85        # % of compact limit where the warning starts
 DOC_FRESH_MIN=30   # handoff doc younger than this counts as "done"
+
+command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
 TP=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')
@@ -43,6 +46,8 @@ def out(s):
 
 # Compact limit — same formula/fallbacks as statusline get_compact_config()
 def compact_limit():
+    if os.environ.get("DISABLE_AUTO_COMPACT"):
+        return None               # auto-compact off -> nothing to warn about
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     pct_s = os.environ.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
     window = int(window_s) if window_s and window_s.isdigit() else None
@@ -78,17 +83,27 @@ def context_tokens():
     return None
 
 limit = compact_limit()
+if limit is None:
+    sys.exit(0)
 used = context_tokens()
 if used is None or used < limit * warn_pct // 100:
     sys.exit(0)
 
-# Fresh handoff doc? (symlinks ignored — pre-create attack)
+# Fresh handoff doc? (symlinks / foreign-uid files ignored — pre-create attack)
 now = time.time()
-fresh = any(
-    (now - p.stat().st_mtime) <= doc_fresh_min * 60
-    for p in pathlib.Path(tmp).glob("keep-handoff-*.md")
-    if not p.is_symlink()
-)
+fresh = False
+for p in pathlib.Path(tmp).glob("keep-handoff-*.md"):
+    if p.is_symlink():
+        continue
+    try:
+        st = p.stat()
+    except OSError:
+        continue
+    if st.st_uid != os.getuid():
+        continue
+    if now - st.st_mtime <= doc_fresh_min * 60:
+        fresh = True
+        break
 if fresh:
     sys.exit(0)
 
