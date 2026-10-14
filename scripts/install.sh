@@ -1003,8 +1003,10 @@ H = "$HOME/.claude/hooks"
 def get_defaults():
     return {
         "env": {
-            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
-            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+            # 320k x 80% = 256k auto-compact trigger (handoff-gate enforces
+            # handoff-before-compact; statusline renders the same cap)
+            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "320000",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
         },
@@ -1064,6 +1066,17 @@ def get_defaults():
                 {"hooks": [
                     {"type": "command", "command": f"{H}/pre-compact-instructions.sh"},
                     {"type": "command", "command": f"{H}/review-queue-inject.sh"},
+                    {"type": "command", "command": f"{H}/handoff-gate.sh"},
+                ]},
+            ],
+            "UserPromptSubmit": [
+                {"hooks": [
+                    {"type": "command", "command": f"{H}/handoff-early-warning.sh"},
+                ]},
+            ],
+            "PostCompact": [
+                {"hooks": [
+                    {"type": "command", "command": f"{H}/post-compact-bridge.sh"},
                 ]},
             ],
             "Stop": [
