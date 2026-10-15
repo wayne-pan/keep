@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-WARN_PCT=85        # % of compact limit where the warning starts
+WARN_PCT=80        # % of compact limit where the warning starts
 DOC_FRESH_MIN=30   # handoff doc younger than this counts as "done"
 
 command -v jq >/dev/null 2>&1 || exit 0

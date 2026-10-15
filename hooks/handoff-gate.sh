@@ -18,7 +18,7 @@
 #
 # OVERFLOW ESCAPE — when the model's REAL context limit is below the
 # configured window (CLAUDE_CODE_AUTO_COMPACT_WINDOW=320000 driving a 200k
-# model, say), the early warning at 85% of the compact limit never fires:
+# model, say), the early warning at 80% of the compact limit never fires:
 # the model hard-errors first. No room is left to run keep:handoff, so
 # blocking the recovery compact deadlocks the session. Therefore: if the
 # transcript tail shows a context-limit API error after the last successful
