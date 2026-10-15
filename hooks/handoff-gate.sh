@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # handoff-gate.sh — PreCompact gate: no compact without a fresh handoff doc.
-# Blocks (exit 2) when no keep-handoff-*.md in $TMPDIR is younger than
+# Blocks (exit 2) when no keep-handoff-*.md in the handoff dir is younger than
 # GATE_FRESH_MIN minutes. Ordering contract: handoff ALWAYS precedes compact.
+#
+# Path resolution MUST stay identical to skills/handoff/SKILL.md (the writer):
+# pinned per-user dir via KEEP_HANDOFF_DIR, defaulting under $HOME. Never
+# $TMPDIR — it can differ between the Bash-tool shell (writer) and the hook
+# process (checker) on macOS, splitting write/read paths (Linux hid this by
+# both sides falling back to /tmp).
 #
 # Behaviour per path:
 #   manual /compact → stderr below is shown to the user, no compact runs.
@@ -23,7 +29,7 @@ GATE_FRESH_MIN=60
 # get the same gate).
 cat >/dev/null
 
-TMP="${TMPDIR:-/tmp}"
+TMP="${KEEP_HANDOFF_DIR:-${HOME:-/tmp}/.claude/handoffs}"
 
 FRESH=$(python3 - "$TMP" "$GATE_FRESH_MIN" << 'PYEOF'
 import sys, os, time, pathlib

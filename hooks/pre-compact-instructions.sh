@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+command -v jq >/dev/null 2>&1 || exit 0   # no jq -> can't emit; advisory, skip
+
 INSTRUCTIONS=$(cat << 'INSTR'
 Compaction priorities (preserve in order — 1=highest, 11=first to drop):
 1. Architecture decisions and rationale — preserve verbatim

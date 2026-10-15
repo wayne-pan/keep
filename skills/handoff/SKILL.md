@@ -13,7 +13,10 @@ description: >
   /compact (unless machine-switch fork — agents cannot invoke built-ins).
   Output goes to OS tmp (never the repo). Differs from
   /compact (continue in same session) and from session-checkpoint (which writes
-  to memory for the resume protocol). Do NOT trigger for: end-of-task cleanup
+  to memory for the resume protocol). Output goes to a pinned per-user dir —
+  $HOME/.claude/handoffs, overridable via KEEP_HANDOFF_DIR (never the repo,
+  never $TMPDIR: it drifts between the Bash shell and hook processes on macOS).
+  Do NOT trigger for: end-of-task cleanup
   (use /keep:sprint Phase 8 Reflect), or when the work is fully shipped.
 resources: ['mind', 'git-diff']
 ---
@@ -74,19 +77,20 @@ Scrub the document for:
 
 ### 4. Write
 
-Write to **OS tmp**, not the repo:
+Write to the **pinned handoff dir**, not the repo:
 
 ```bash
-TMPDIR="${TMPDIR:-/tmp}"
-HANDOFF="$TMPDIR/keep-handoff-$(date +%Y%m%d-%H%M%S).md"
+HANDOFF_DIR="${KEEP_HANDOFF_DIR:-$HOME/.claude/handoffs}"
+mkdir -p "$HANDOFF_DIR"
+HANDOFF="$HANDOFF_DIR/keep-handoff-$(date +%Y%m%d-%H%M%S).md"
 # Create with restrictive permissions from the start (avoids TOCTOU window
 # where default umask leaves the file world-readable between create and chmod).
 (umask 077 && touch "$HANDOFF")
 # Then write content to "$HANDOFF" — file is already 600
-# Next session consumes it, then: rm "$HANDOFF"   # one-shot, do not leave secrets in /tmp
+# Next session consumes it, then: rm "$HANDOFF"   # one-shot, do not leave secrets lying around
 ```
 
-**Never** write handoffs inside the working repo. They're disposable; the repo shouldn't carry them. **On shared systems** (multi-user Linux, CI runners, dev servers): `chmod 600` after writing — `/tmp` is world-readable by default and handoffs may contain redacted-but-still-sensitive context. On single-user personal machines this is a no-op but harmless. The file is **one-shot**: the consuming session must `rm` it after reading.
+**Never** write handoffs inside the working repo, and **never via `$TMPDIR`** — the hooks that gate compaction (`handoff-gate.sh`, `handoff-early-warning.sh`, `post-compact-bridge.sh`) resolve this same pinned path; a `$TMPDIR` write can land in a different directory than the hooks scan on macOS (per-process `TMPDIR` drift), which deadlocks the compact gate. The dir lives under `$HOME` and is created `700`, files `600` — private even on shared systems. The file is **one-shot**: the consuming session must `rm` it after reading.
 
 **Document structure:**
 
@@ -158,10 +162,10 @@ _Previous session checkpoint: mcp memory #NNNNN (if any)_
 - [ ] Remind the user how the next session should consume it:
 
 ```
-Next session: cat $TMPDIR/keep-handoff-<timestamp>.md
+Next session: cat $HOME/.claude/handoffs/keep-handoff-<timestamp>.md
               mcp__mind__wakeup(project)  # reload memory state
               /keep:<suggested skill>  # begin next move
-              rm $TMPDIR/keep-handoff-<timestamp>.md  # one-shot — delete after consuming
+              rm $HOME/.claude/handoffs/keep-handoff-<timestamp>.md  # one-shot — delete after consuming
 ```
 
 ## Resource Check
@@ -173,9 +177,9 @@ Next session: cat $TMPDIR/keep-handoff-<timestamp>.md
 
 ## Anti-Patterns
 
-- ❌ **Writing handoffs into the repo.** Use `$TMPDIR`. The repo shouldn't carry disposable state.
-- ❌ **Skipping `chmod 600` on the handoff file (shared systems).** On multi-user Linux or CI runners, `/tmp` is world-readable by default; redacted context still leaks.
-- ❌ **Leaving the handoff file in `/tmp` after the next session consumes it.** It's one-shot — the consumer must `rm` after reading.
+- ❌ **Writing handoffs into the repo.** Use the pinned dir (`$HOME/.claude/handoffs`). The repo shouldn't carry disposable state.
+- ❌ **Writing handoffs to `$TMPDIR`/`/tmp`.** The compact-gate hooks scan the pinned dir only; a tmp write deadlocks `/compact` on macOS (per-process `TMPDIR` drift between writer shell and hook env).
+- ❌ **Leaving the handoff file in the dir after the next session consumes it.** It's one-shot — the consumer must `rm` after reading.
 - ❌ **Paraphrasing existing artifacts.** If a PRD exists, cite it. Don't retell it.
 - ❌ **Reopening decisions.** Hand off decisions as constraints. If you want to reopen, list under "Open questions" with reasoning.
 - ❌ **Skipping sanitisation.** API keys in a handoff file in `/tmp` is still a leak.

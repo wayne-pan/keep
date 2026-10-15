@@ -27,7 +27,9 @@ INPUT=$(cat)
 TP=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')
 [ -n "$TP" ] && [ -f "$TP" ] || exit 0
 
-TMP="${TMPDIR:-/tmp}"
+# Handoff dir — same pinned resolution as handoff-gate.sh / SKILL.md writer.
+# Never $TMPDIR: it drifts between Bash-tool shell and hook env on macOS.
+TMP="${KEEP_HANDOFF_DIR:-${HOME:-/tmp}/.claude/handoffs}"
 
 python3 - "$TP" "$TMP" "$WARN_PCT" "$DOC_FRESH_MIN" << 'PYEOF'
 import sys, os, json, time, pathlib

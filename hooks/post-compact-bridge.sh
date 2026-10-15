@@ -11,9 +11,13 @@ set -euo pipefail
 
 STALE_MIN=120
 
+command -v jq >/dev/null 2>&1 || exit 0   # no jq -> can't emit; advisory, skip
+
 cat >/dev/null   # drain event JSON (unused)
 
-TMP="${TMPDIR:-/tmp}"
+# Handoff dir — same pinned resolution as handoff-gate.sh / SKILL.md writer.
+# Never $TMPDIR: it drifts between Bash-tool shell and hook env on macOS.
+TMP="${KEEP_HANDOFF_DIR:-${HOME:-/tmp}/.claude/handoffs}"
 
 DOC=$(python3 - "$TMP" "$STALE_MIN" << 'PYEOF'
 import sys, os, time, pathlib

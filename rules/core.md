@@ -68,7 +68,7 @@ On session start, run four steps in order:
 
 1. `wakeup(project)` — load synthesis + recent observations into context.
 2. `search("session-checkpoint", project=project)` — pull the most recent checkpoint. Checkpoints are append-only.
-3. Handoff check: `ls -t "${TMPDIR:-/tmp}"/keep-handoff-*.md 2>/dev/null | head -1`. If a handoff file exists, read it before presenting — it carries in-flight work, suggested next skills, and decisions not to re-litigate. The handoff is a fork (one-shot), not state — delete or archive it after consuming.
+3. Handoff check: `ls -t "${KEEP_HANDOFF_DIR:-$HOME/.claude/handoffs}"/keep-handoff-*.md 2>/dev/null | head -1`. If a handoff file exists, read it before presenting — it carries in-flight work, suggested next skills, and decisions not to re-litigate. The handoff is a fork (one-shot), not state — delete or archive it after consuming.
 4. Present to user: current branch, dirty files, modified files since last session, and (if handoff was found) the top 1-3 next moves with their suggested skills.
 
 Three sources, three roles — don't conflate them:
