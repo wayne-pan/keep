@@ -8,10 +8,11 @@ description: >
   user says "/keep:handoff", "pass this off", "wrap up the session", "I'm switching
   machines", when context is approaching the smart-zone ceiling and a fork is
   safer than a compact, or when the UserPromptSubmit early-warning hook directs
-  a pre-compact snapshot (handoff-gate.sh blocks compaction until one exists —
-  handoff ALWAYS precedes compact). After writing, direct the user to run
+  a pre-compact snapshot (handoff-gate.sh auto-writes a mechanical fallback
+  snapshot if none exists — a snapshot ALWAYS precedes compact). After writing,
+  direct the user to run
   /compact (unless machine-switch fork — agents cannot invoke built-ins).
-  Output goes to OS tmp (never the repo). Differs from
+  Differs from
   /compact (continue in same session) and from session-checkpoint (which writes
   to memory for the resume protocol). Output goes to a pinned per-user dir —
   $HOME/.claude/handoffs, overridable via KEEP_HANDOFF_DIR (never the repo,
@@ -158,7 +159,7 @@ _Previous session checkpoint: mcp memory #NNNNN (if any)_
 
 - [ ] Echo the handoff path to the user
 - [ ] Echo the top 3 next moves and suggested skills inline (one line each)
-- [ ] **Chain to compact** (unless this is a machine-switch fork): the handoff doc now doubles as the pre-compact snapshot — direct the user to run `/compact` next. `handoff-gate.sh` (PreCompact) blocks any compact without a doc fresher than 60 min; `post-compact-bridge.sh` re-points the compacted context at this doc so dropped details are recoverable.
+- [ ] **Chain to compact** (unless this is a machine-switch fork): the handoff doc now doubles as the pre-compact snapshot — direct the user to run `/compact` next. `handoff-gate.sh` (PreCompact) never blocks: with no doc fresher than 60 min it auto-writes a mechanical fallback snapshot (git state + transcript pointer) and yields; `post-compact-bridge.sh` re-points the compacted context at this doc so dropped details are recoverable.
 - [ ] Remind the user how the next session should consume it:
 
 ```

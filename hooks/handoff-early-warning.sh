@@ -113,8 +113,8 @@ out(
     f"({used * 100 // limit}% of compact limit). Before auto-compact fires: "
     "(1) invoke the keep:handoff skill NOW via the Skill tool to write the "
     "pre-compact snapshot; (2) once it completes, tell the user to run "
-    "/compact. handoff-gate.sh blocks any compact until a fresh handoff "
-    "doc exists."
+    "/compact. Without a fresh doc, handoff-gate.sh only manages a "
+    "mechanical auto-snapshot — this handoff is the quality path."
 )
 PYEOF
 

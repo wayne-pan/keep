@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# handoff-gate.sh — PreCompact gate: no compact without a fresh handoff doc.
-# Blocks (exit 2) when no keep-handoff-*.md in the handoff dir is younger than
-# GATE_FRESH_MIN minutes. Ordering contract: handoff ALWAYS precedes compact.
+# handoff-gate.sh — PreCompact gate: guarantee a pre-compact snapshot, never
+# block the compact. A keep-handoff-*.md younger than GATE_FRESH_MIN passes
+# straight through; overflow yields as below; otherwise the gate writes a
+# mechanical auto-snapshot itself (git state + transcript pointer) and yields.
+# Ordering contract: a snapshot ALWAYS precedes compact.
+#
+# Why auto-snapshot instead of exit 2: the hook cannot summon a model turn to
+# run keep:handoff, and the model cannot invoke /compact — a block can never
+# self-chain into "handoff then compact", it only dead-ends the user (e.g.
+# compacting a fresh session: the 80% early warning never fired, nothing to
+# hand off, yet the gate refused). Model-written handoffs remain the quality
+# path (handoff-early-warning.sh + handoff-enforce.sh drive them at 80%);
+# this gate is the automatic floor. post-compact-bridge.sh then points the
+# compacted context at whatever doc exists — auto or model-written alike.
 #
 # Path resolution MUST stay identical to skills/handoff/SKILL.md (the writer):
 # pinned per-user dir via KEEP_HANDOFF_DIR, defaulting under $HOME. Never
 # $TMPDIR — it can differ between the Bash-tool shell (writer) and the hook
 # process (checker) on macOS, splitting write/read paths (Linux hid this by
 # both sides falling back to /tmp).
-#
-# Behaviour per path:
-#   manual /compact → stderr below is shown to the user, no compact runs.
-#   auto (proactive) → CC skips compaction, conversation continues; the
-#     UserPromptSubmit early-warning hook (handoff-early-warning.sh) drives
-#     the agent to write the handoff, then the next compact attempt passes.
-#   auto (recovery from hard context-limit error) → overflow escape below.
 #
 # OVERFLOW ESCAPE — when the model's REAL context limit is below the
 # configured window (CLAUDE_CODE_AUTO_COMPACT_WINDOW=320000 driving a 200k
@@ -120,8 +124,52 @@ case "$VERDICT" in
     exit 0 ;;
 esac
 
-echo "handoff-gate: no keep-handoff-*.md in $TMP fresher than ${GATE_FRESH_MIN}min." >&2
-echo "Run /keep:handoff first (writes the pre-compact snapshot), then compact again." >&2
-echo "Context already exhausted so handoff can't run? Escape without model turns:" >&2
-echo "  touch \"$TMP/keep-handoff-emergency.md\"   # then compact again" >&2
-exit 2
+# --- Auto-snapshot fallback (was: exit 2 dead-end) ---
+# No fresh doc, no overflow: write the mechanical snapshot, then yield.
+SNAP="$TMP/keep-handoff-auto-$(date +%Y%m%d-%H%M%S)-$$.md"
+# tr: a transcript_path carrying newlines must not smuggle extra markdown
+# lines into the snapshot (event JSON is CC-owned, hardening only).
+TRANSCRIPT=$({ printf '%s' "$EVENT_JSON" | python3 -c \
+  'import json,sys; print(json.load(sys.stdin).get("transcript_path") or "(unavailable)")' \
+  2>/dev/null || echo "(unavailable)"; } | tr -d '\n\r')
+REPO_TOP=$(git rev-parse --show-toplevel 2>/dev/null || true)
+(
+  umask 077
+  # Fresh machine: the handoff dir may not exist yet (only the skill writer
+  # creates it) — without this the snapshot silently fails on first compact.
+  mkdir -p "$TMP" 2>/dev/null || true
+  {
+    echo "# Handoff (auto snapshot — gate fallback, not a model summary)"
+    echo
+    echo "_Written by handoff-gate.sh at PreCompact, $(date '+%Y-%m-%d %H:%M:%S'):_"
+    echo "_no model-written handoff fresher than ${GATE_FRESH_MIN}min existed._"
+    echo "_Mechanical state only — mine the transcript for the full conversation._"
+    echo
+    echo "- Transcript (pre-compact conversation, JSONL): $TRANSCRIPT"
+    if [ -n "$REPO_TOP" ]; then
+      BRANCH=$(git -C "$REPO_TOP" branch --show-current 2>/dev/null || echo '(detached)')
+      HEAD_SHA=$(git -C "$REPO_TOP" rev-parse --short HEAD 2>/dev/null || echo '?')
+      echo "- Repo: $REPO_TOP @ $BRANCH (HEAD: $HEAD_SHA)"
+      echo "- git status --short:"
+      git -C "$REPO_TOP" status --short 2>/dev/null | sed 's/^/    /' || true
+      echo "- git diff --stat:"
+      git -C "$REPO_TOP" diff --stat 2>/dev/null | sed 's/^/    /' || true
+      echo "- Recent commits:"
+      git -C "$REPO_TOP" log --oneline -5 2>/dev/null | sed 's/^/    /' || true
+    else
+      echo "- Repo: not a git worktree (cwd: $PWD)"
+    fi
+    echo
+    echo "One-shot: consuming session should rm this file after reading."
+  } > "$SNAP"
+) 2>/dev/null || true
+
+if [ -s "$SNAP" ]; then
+  echo "handoff-gate: no fresh handoff — auto-snapshot written: $SNAP" >&2
+  echo "Compact proceeding. Post-compact: read the snapshot (and transcript)" >&2
+  echo "if context went missing." >&2
+else
+  echo "handoff-gate: no fresh handoff AND auto-snapshot write failed — yielding" >&2
+  echo "anyway (fail-open: an unwritable handoff dir must not deadlock compact)." >&2
+fi
+exit 0
