@@ -8,9 +8,10 @@
 # scripts/statusline.py — raw usage sum, no model-window clamp; docs warn the
 # transcript may lag the in-memory conversation — fine for an early warning).
 # Threshold mirrors statusline's get_compact_config():
-#   limit = CLAUDE_CODE_AUTO_COMPACT_WINDOW * CLAUDE_AUTOCOMPACT_PCT_OVERRIDE / 100
+#   limit = CLAUDE_CODE_AUTO_COMPACT_WINDOW (the only knob the CC binary
+#   actually reads — CLAUDE_AUTOCOMPACT_PCT_OVERRIDE was never honored)
 # so the statusline cap bar and this warning always agree. DISABLE_AUTO_COMPACT
-# disables this warning too.
+# disables this warning too. Enforcement lives in handoff-enforce.sh.
 #
 # Re-nags every prompt while over threshold until a handoff doc fresher than
 # DOC_FRESH_MIN exists (< GATE_FRESH_MIN, so a doc written on warning always
@@ -24,7 +25,7 @@ DOC_FRESH_MIN=30   # handoff doc younger than this counts as "done"
 command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
-TP=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')
+TP=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' || exit 0)
 [ -n "$TP" ] && [ -f "$TP" ] || exit 0
 
 # Handoff dir — same pinned resolution as handoff-gate.sh / SKILL.md writer.
@@ -51,10 +52,8 @@ def compact_limit():
     if os.environ.get("DISABLE_AUTO_COMPACT"):
         return None               # auto-compact off -> nothing to warn about
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
-    pct_s = os.environ.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
     window = int(window_s) if window_s and window_s.isdigit() else None
-    pct = int(pct_s) if pct_s and pct_s.isdigit() else 80
-    return int(window * pct / 100) if window else 180_000
+    return window if window else 180_000
 
 # Context estimate: last assistant usage in the transcript tail
 def context_tokens():

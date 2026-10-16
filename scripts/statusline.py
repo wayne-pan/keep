@@ -107,26 +107,21 @@ COMPACT_TOKEN_LIMIT_DEFAULT = 180_000
 
 
 def get_compact_config():
-    """Read compaction window + threshold from env (set in settings.json).
+    """Read the auto-compact window from env (set in settings.json).
 
     Returns (total_window, compact_limit). Window is None if env unset,
     in which case compact_limit falls back to the hardcoded default.
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE was never honored by the CC binary —
+    the window itself is the only real knob, so limit == window.
     """
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
-    pct_s = os.environ.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")
     window = None
     if window_s:
         try:
             window = int(window_s)
         except ValueError:
             pass
-    pct = 80
-    if pct_s:
-        try:
-            pct = int(pct_s)
-        except ValueError:
-            pass
-    limit = int(window * pct / 100) if window else COMPACT_TOKEN_LIMIT_DEFAULT
+    limit = window if window else COMPACT_TOKEN_LIMIT_DEFAULT
     if os.environ.get("DISABLE_AUTO_COMPACT"):
         limit = None  # auto-compact disabled; hide cap display
     return window, limit

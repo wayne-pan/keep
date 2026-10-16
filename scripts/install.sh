@@ -1003,9 +1003,8 @@ H = "$HOME/.claude/hooks"
 def get_defaults():
     return {
         "env": {
-            # 320k x 80% = 256k auto-compact trigger (handoff-gate enforces
-            # handoff-before-compact; statusline renders the same cap)
-            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
+            # 320k auto-compact window — the only knob the CC binary reads;
+            # hooks enforce handoff at their own WARN_PCT=80 of it
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "320000",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
@@ -1030,6 +1029,7 @@ def get_defaults():
                     {"type": "command", "command": f"{H}/no-todo-commit.sh"},
                     {"type": "command", "command": f"{H}/pr-gate.sh"},
                     {"type": "command", "command": f"{H}/codedb-block-legacy.sh"},
+                    {"type": "command", "command": f"{H}/handoff-enforce.sh"},
                 ]},
                 {"matcher": "Edit|Write", "hooks": [
                     {"type": "command", "command": f"{H}/protect-files.sh"},
