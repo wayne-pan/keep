@@ -47,40 +47,59 @@ def out(s):
         }
     }))
 
-# Compact limit — same formula/fallbacks as statusline get_compact_config()
+# Compact limit — statusline formula + the model cap CC actually enforces:
+# effectiveWindow = min(env, model window). glm-5.3 resolves to 300k on CC
+# 2.1.293 (verified via --debug-to-stderr: env=320k and env=2M both give
+# effectiveWindow=300000), so a window above the cap only inflates this
+# threshold past the real auto-compact point (~92% of 300k) and the
+# warning never beats the compact.
+MODEL_WINDOW_CAP = 300_000
+
 def compact_limit():
     if os.environ.get("DISABLE_AUTO_COMPACT"):
         return None               # auto-compact off -> nothing to warn about
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     window = int(window_s) if window_s and window_s.isdigit() else None
-    return window if window else 180_000
+    if not window:
+        return 180_000
+    return min(window, MODEL_WINDOW_CAP)
 
-# Context estimate: last assistant usage in the transcript tail
+# Context estimate: last REAL assistant usage in the transcript tail
 def context_tokens():
     try:
         with open(tp, "rb") as f:
-            try:                  # seek ~200 lines back (statusline technique)
+            try:                  # seek ~2MB back, not 200*400B: post-compact
+                                  # continuation lines embed the whole summary
+                                  # and push the last usage line 100KB+ past
+                                  # EOF (measured 114,383B on a 266k tail —
+                                  # the 80KB window went blind after compacts)
                 f.seek(0, 2)
                 size = f.tell()
-                f.seek(max(0, size - 200 * 400))
+                f.seek(max(0, size - 2_000_000))
                 lines = f.read().decode("utf-8", "replace").splitlines()
             except OSError:
                 return None
     except OSError:
         return None
-    for line in reversed(lines[-200:]):
+    for line in reversed(lines):
         if '"usage"' not in line:
             continue
         try:
-            u = json.loads(line).get("message", {}).get("usage", {})
+            obj = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if obj.get("isApiErrorMessage"):
+            continue              # synthetic error rows carry usage (all-zero)
+        u = (obj.get("message") or {}).get("usage") or {}
         if not u:
             continue
-        return (u.get("input_tokens", 0)
-                + u.get("cache_read_input_tokens", 0)
-                + u.get("cache_creation_input_tokens", 0)
-                + u.get("output_tokens", 0))
+        total = (u.get("input_tokens", 0)
+                 + u.get("cache_read_input_tokens", 0)
+                 + u.get("cache_creation_input_tokens", 0)
+                 + u.get("output_tokens", 0))
+        if total <= 0:
+            continue              # zero-usage synthetic ("No response requested.")
+        return total
     return None
 
 limit = compact_limit()
