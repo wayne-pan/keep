@@ -24,7 +24,10 @@
 set -euo pipefail
 
 WARN_PCT=80        # % of compact window where enforcement starts
-DOC_FRESH_MIN=30   # handoff doc younger than this counts as "done"
+DOC_FRESH_MIN=60   # handoff doc younger than this counts as "done" (==
+                   # GATE_FRESH_MIN — long mid-band dwells must not re-block
+                   # a session that already handed off; the doc still
+                   # describes the task until auto-compact resets usage)
 
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -129,8 +132,8 @@ print(
     f"context at ~{used // 1000}k/{limit // 1000}k tokens "
     f"({used * 100 // limit}% of compact window) with no fresh handoff doc. "
     "Non-essential Bash is denied until the handoff is written. Invoke the "
-    "keep:handoff skill NOW via the Skill tool, then tell the user to run "
-    "/compact.",
+    "keep:handoff skill NOW via the Skill tool, then resume the interrupted "
+    "task — native auto-compact fires on its own; no user action needed.",
     file=sys.stderr,
 )
 sys.exit(2)

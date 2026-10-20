@@ -48,7 +48,7 @@ PYEOF
 jq -n --arg doc "$DOC" '{
   "hookSpecificOutput": {
     "hookEventName": "PostCompact",
-    "additionalContext": ("Compaction just ran. A pre-compact handoff snapshot exists at " + $doc + ". If you notice missing context (file state, decisions, identifiers), read it with the Read tool. It is one-shot: rm it after consuming — unless this session will hand off to another machine/agent later.")
+    "additionalContext": ("Compaction just ran. A pre-compact handoff snapshot exists at " + $doc + ". Continue the interrupted task without waiting for user input — unless a genuine user decision is required (permission, ambiguity), then ask. If you notice missing context (file state, decisions, identifiers), read the snapshot with the Read tool. It is one-shot: rm it after consuming — unless this session will hand off to another machine/agent later.")
   }
 }'
 

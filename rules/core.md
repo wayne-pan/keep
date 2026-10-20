@@ -59,7 +59,7 @@ Enforcement: safety-guard.sh blocks destructive patterns. This tier is advisory.
 - Subagent returns: conclusions only (≤200w)
 - Memory: store decisions+corrections only, not derivable facts
 - Compact at: post-research, post-milestone, pre-shift, 50+ calls
-- Compact discipline: handoff precedes EVERY compact (handoff-gate.sh enforces; early-warning hook drives it a few turns before the auto-compact threshold). Manual /keep:handoff chains to /compact after writing.
+- Compact discipline: handoff precedes EVERY compact (handoff-gate.sh enforces; early-warning hook drives it a few turns before the auto-compact threshold). Close by intent: fork intent (machine switch) ends the turn pointing at the doc; otherwise (hook-triggered or mid-task snapshot) resume in-session — native auto-compact fires on its own, no user action.
 - Before compaction: create session-checkpoint via remember(), preserve checkpoint ID
 - Preserve: decisions, task goals, errors, modified files, identifiers. Compress: research, tool output, reasoning.
 

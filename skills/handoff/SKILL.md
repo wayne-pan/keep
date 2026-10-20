@@ -9,10 +9,11 @@ description: >
   machines", when context is approaching the smart-zone ceiling and a fork is
   safer than a compact, or when the UserPromptSubmit early-warning hook directs
   a pre-compact snapshot (handoff-gate.sh auto-writes a mechanical fallback
-  snapshot if none exists — a snapshot ALWAYS precedes compact). After writing,
-  direct the user to run
-  /compact (unless machine-switch fork — agents cannot invoke built-ins).
-  Differs from
+  snapshot if none exists — a snapshot ALWAYS precedes compact). After
+  writing, close by intent: fork intent (machine switch / new session) → end
+  the turn, the doc is the baton; otherwise (hook-triggered or mid-task
+  snapshot) → continue in-session — native auto-compact fires on its own,
+  zero user action. Differs from
   /compact (continue in same session) and from session-checkpoint (which writes
   to memory for the resume protocol). Output goes to a pinned per-user dir —
   $HOME/.claude/handoffs, overridable via KEEP_HANDOFF_DIR (never the repo,
@@ -24,17 +25,17 @@ resources: ['mind', 'git-diff']
 
 # Handoff
 
-Write a handoff document that lets a fresh agent continue the work. The document is a **fork** — the new session reads it and runs; the old session is done. This is different from `/compact` (which is a **continue** — same session, summarised) and from the resume protocol's session-checkpoint (which is **memory state** for the next session's `wakeup`).
+Write a handoff document that lets a fresh agent continue the work. The document is a **fork or a pre-compact snapshot**, depending on trigger: machine-switch fork — the new session reads it and runs, the old session is done; hook-triggered continuity — the same session resumes after auto-compact with this doc as its recovery net. This is different from `/compact` (which is a **continue** — same session, summarised) and from the resume protocol's session-checkpoint (which is **memory state** for the next session's `wakeup`).
 
 ## When to Choose Handoff vs Compact vs Checkpoint
 
 | Tool | Relationship | When |
 |------|-------------|------|
-| **handoff** (this skill) | Fork — new session references a file | Work must continue in a fresh context window (different machine, different agent, detour through `/keep:prototype` and back) |
+| **handoff** (this skill) | Fork — new session references a file; or pre-compact snapshot for the same session (hook-triggered) | Machine switch, different agent, detour through `/keep:prototype` and back; or hooks fired at the context ceiling mid-task |
 | `/compact` | Continue — same session, compressed | Current session is hitting context limits but the work is one continuous thread |
 | session-checkpoint | Memory state — next session's `wakeup()` reads it | End of session, expect to resume tomorrow; wants decisions + modified files in `mcp__mind` |
 
-Handoff is for **cross-context bridges**. If you can compact, compact. If you're done for the day, checkpoint. If you're handing the baton to a different runner, handoff.
+Handoff is for **cross-context bridges** — and, when the hooks trigger it, for pre-compact snapshots. If you can compact, compact (the hooks own the exception: when they fire, handoff IS the compact preparation). If you're done for the day, checkpoint. If you're handing the baton to a different runner, handoff.
 
 ## Workflow
 
@@ -159,15 +160,26 @@ _Previous session checkpoint: mcp memory #NNNNN (if any)_
 
 - [ ] Echo the handoff path to the user
 - [ ] Echo the top 3 next moves and suggested skills inline (one line each)
-- [ ] **Chain to compact** (unless this is a machine-switch fork): the handoff doc now doubles as the pre-compact snapshot — direct the user to run `/compact` next. `handoff-gate.sh` (PreCompact) never blocks: with no doc fresher than 60 min it auto-writes a mechanical fallback snapshot (git state + transcript pointer) and yields; `post-compact-bridge.sh` re-points the compacted context at this doc so dropped details are recoverable.
-- [ ] Remind the user how the next session should consume it:
+- [ ] **Close by intent** — purpose picks the mode, not who pulled the trigger:
+  - **Continuity mode** (hooks fired at the context ceiling, or the user
+    invoked `/keep:handoff` mid-task WITHOUT fork intent — e.g. wanting a
+    quality snapshot before auto-compact): the handoff doc now doubles as the
+    pre-compact snapshot. **Resume the interrupted task immediately in this
+    same session.** Do NOT end the turn, do NOT direct the user to run
+    `/compact` — native auto-compact fires on its own, and
+    `post-compact-bridge.sh` re-points the compacted context at this doc so
+    dropped details are recoverable. Zero human intervention is the contract;
+    ending the turn here is the bug this mode exists to fix.
+  - **Fork mode** (the invocation expresses fork intent — machine switch,
+    "pass this off", hand the baton to a new session): end here. The doc is
+    the baton — remind the user how the next session consumes it:
 
-```
-Next session: cat $HOME/.claude/handoffs/keep-handoff-<timestamp>.md
-              mcp__mind__wakeup(project)  # reload memory state
-              /keep:<suggested skill>  # begin next move
-              rm $HOME/.claude/handoffs/keep-handoff-<timestamp>.md  # one-shot — delete after consuming
-```
+    ```
+    Next session: cat $HOME/.claude/handoffs/keep-handoff-<timestamp>.md
+                  mcp__mind__wakeup(project)  # reload memory state
+                  /keep:<suggested skill>  # begin next move
+                  rm $HOME/.claude/handoffs/keep-handoff-<timestamp>.md  # one-shot — delete after consuming
+    ```
 
 ## Resource Check
 
@@ -184,7 +196,7 @@ Next session: cat $HOME/.claude/handoffs/keep-handoff-<timestamp>.md
 - ❌ **Paraphrasing existing artifacts.** If a PRD exists, cite it. Don't retell it.
 - ❌ **Reopening decisions.** Hand off decisions as constraints. If you want to reopen, list under "Open questions" with reasoning.
 - ❌ **Skipping sanitisation.** API keys in a handoff file in `/tmp` is still a leak.
-- ❌ **Using handoff when compact would do.** Handoff is for forks. Same-session compression is `/compact`.
+- ❌ **Using handoff when compact would do** (user-initiated). Handoff is for forks; same-session compression is `/compact`. Hook-triggered continuity snapshots are the exception — the hooks invoke them, not preference.
 - ❌ **Omitting suggested skills.** The next agent shouldn't have to re-derive which skill fits — name them.
 
 ## Composability

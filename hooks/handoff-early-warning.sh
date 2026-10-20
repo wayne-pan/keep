@@ -20,7 +20,8 @@
 set -euo pipefail
 
 WARN_PCT=80        # % of compact limit where the warning starts
-DOC_FRESH_MIN=30   # handoff doc younger than this counts as "done"
+DOC_FRESH_MIN=60   # handoff doc younger than this counts as "done" (==
+                   # GATE_FRESH_MIN — mirrors handoff-enforce.sh)
 
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -130,10 +131,13 @@ if fresh:
 out(
     f"Context at ~{used // 1000}k/{limit // 1000}k tokens "
     f"({used * 100 // limit}% of compact limit). Before auto-compact fires: "
-    "(1) invoke the keep:handoff skill NOW via the Skill tool to write the "
-    "pre-compact snapshot; (2) once it completes, tell the user to run "
-    "/compact. Without a fresh doc, handoff-gate.sh only manages a "
-    "mechanical auto-snapshot — this handoff is the quality path."
+    "invoke the keep:handoff skill NOW via the Skill tool to write the "
+    "pre-compact snapshot, then CONTINUE the interrupted task in this same "
+    "session — do not end the turn or direct the user to run /compact. "
+    "Native auto-compact fires on its own; post-compact-bridge.sh then "
+    "points the compacted context at this doc. Without a fresh doc, "
+    "handoff-gate.sh only manages a mechanical auto-snapshot — this "
+    "handoff is the quality path."
 )
 PYEOF
 
