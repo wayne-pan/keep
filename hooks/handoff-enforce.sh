@@ -57,7 +57,9 @@ tp, tmp, warn_pct, doc_fresh_min = (
 # 2.1.293 (verified via --debug-to-stderr: env=320k and env=2M both give
 # effectiveWindow=300000), so a window above the cap only inflates this
 # threshold past the real auto-compact point (~92% of 300k) and the
-# gate never fires before the compact does.
+# gate never fires before the compact does. Env unset (the default —
+# no settings.json entry) means the model-native window: the cap IS
+# the limit. Env remains a shrink-only knob below the cap.
 MODEL_WINDOW_CAP = 300_000
 
 def compact_limit():
@@ -66,7 +68,7 @@ def compact_limit():
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     window = int(window_s) if window_s and window_s.isdigit() else None
     if not window:
-        return 180_000
+        return MODEL_WINDOW_CAP   # env unset -> model-native window
     return min(window, MODEL_WINDOW_CAP)
 
 # Context estimate: last REAL assistant usage in the transcript tail

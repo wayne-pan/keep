@@ -9,7 +9,8 @@
 # transcript may lag the in-memory conversation — fine for an early warning).
 # Threshold mirrors statusline's get_compact_config():
 #   limit = CLAUDE_CODE_AUTO_COMPACT_WINDOW (the only knob the CC binary
-#   actually reads — CLAUDE_AUTOCOMPACT_PCT_OVERRIDE was never honored)
+#   actually reads — CLAUDE_AUTOCOMPACT_PCT_OVERRIDE was never honored;
+#   optional shrink-only, unset = model-native window)
 # so the statusline cap bar and this warning always agree. DISABLE_AUTO_COMPACT
 # disables this warning too. Enforcement lives in handoff-enforce.sh.
 #
@@ -53,7 +54,9 @@ def out(s):
 # 2.1.293 (verified via --debug-to-stderr: env=320k and env=2M both give
 # effectiveWindow=300000), so a window above the cap only inflates this
 # threshold past the real auto-compact point (~92% of 300k) and the
-# warning never beats the compact.
+# warning never beats the compact. Env unset (the default — no
+# settings.json entry) means the model-native window: the cap IS the
+# limit. Env remains a shrink-only knob below the cap.
 MODEL_WINDOW_CAP = 300_000
 
 def compact_limit():
@@ -62,7 +65,7 @@ def compact_limit():
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     window = int(window_s) if window_s and window_s.isdigit() else None
     if not window:
-        return 180_000
+        return MODEL_WINDOW_CAP   # env unset -> model-native window
     return min(window, MODEL_WINDOW_CAP)
 
 # Context estimate: last REAL assistant usage in the transcript tail

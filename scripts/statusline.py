@@ -102,8 +102,11 @@ def load_pricing():
     REFERENCE_MODEL,
 ) = load_pricing()
 
-# Default compact token limit (fallback when CLAUDE_CODE_AUTO_COMPACT_WINDOW unset)
-COMPACT_TOKEN_LIMIT_DEFAULT = 180_000
+# Default compact token limit (fallback when CLAUDE_CODE_AUTO_COMPACT_WINDOW
+# unset) — the model-native window CC enforces: glm-5.3 resolves to 300k on
+# CC 2.1.293. Mirrors MODEL_WINDOW_CAP in hooks/handoff-*.sh so the cap bar
+# and the handoff trigger always agree.
+COMPACT_TOKEN_LIMIT_DEFAULT = 300_000
 
 
 def get_compact_config():
