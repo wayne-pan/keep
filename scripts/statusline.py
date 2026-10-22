@@ -422,6 +422,19 @@ def render(ctx):
     # Absolute tokens used (preserved when recomputing against a larger window)
     used_abs = int(stdin_total * used_pct / 100) if stdin_total else 0
 
+    # Publish CC's real window for the handoff hooks — they can't see this
+    # stdin payload (only the statusline receives context_window), so cache
+    # it where they look. Best-effort: rendering must never fail on this.
+    if stdin_total:
+        try:
+            cache = os.path.expanduser("~/.claude/.cc-window")
+            tmp = cache + ".tmp"
+            with open(tmp, "w") as f:
+                f.write(str(int(stdin_total)))
+            os.replace(tmp, cache)
+        except OSError:
+            pass
+
     # Env window (CLAUDE_CODE_AUTO_COMPACT_WINDOW) overrides stdin total,
     # but is clamped to the model's real context size from pricing.json so
     # a 1M env window doesn't inflate glm-4 (128K) / glm-5 (200K) / opus (200K).

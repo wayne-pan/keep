@@ -49,24 +49,43 @@ def out(s):
         }
     }))
 
-# Compact limit — statusline formula + the model cap CC actually enforces:
-# effectiveWindow = min(env, model window). glm-5.3 resolves to 300k on CC
-# 2.1.293 (verified via --debug-to-stderr: env=320k and env=2M both give
-# effectiveWindow=300000), so a window above the cap only inflates this
-# threshold past the real auto-compact point (~92% of 300k) and the
-# warning never beats the compact. Env unset (the default — no
-# settings.json entry) means the model-native window: the cap IS the
-# limit. Env remains a shrink-only knob below the cap.
-MODEL_WINDOW_CAP = 300_000
+# Real model window — CC publishes it only to the statusline (stdin
+# context_window.context_window_size), never to hooks, so the statusline
+# caches it to ~/.claude/.cc-window and we read it back: the trigger
+# stays a true 80% of the REAL window on every machine (300k for glm-5.3
+# on CC 2.1.293; 1M where CC resolves the [1m] variant). Chain:
+# KEEP_MODEL_WINDOW env (explicit per-machine override) > cache >
+# measured fallback. CLAUDE_CODE_AUTO_COMPACT_WINDOW stays a
+# shrink-only knob below whatever the real window is.
+MEASURED_WINDOW = 300_000  # glm-5.3 on CC 2.1.293 (--debug-to-stderr)
+
+# Absolute trigger floor — a big window (1M) must not postpone the first
+# handoff to 80% of it; snapshot by 256k regardless of the window size.
+FIXED_TRIGGER = 256_000
+
+def real_window():
+    s = os.environ.get("KEEP_MODEL_WINDOW")
+    if s and s.isdigit():
+        return int(s)
+    try:
+        cache = pathlib.Path.home() / ".claude" / ".cc-window"
+        if time.time() - cache.stat().st_mtime < 30 * 86400:  # stale > 30d
+            v = int(cache.read_text().strip())
+            if v > 0:
+                return v
+    except (OSError, ValueError):
+        pass
+    return MEASURED_WINDOW
 
 def compact_limit():
     if os.environ.get("DISABLE_AUTO_COMPACT"):
         return None               # auto-compact off -> nothing to warn about
+    limit = real_window()
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     window = int(window_s) if window_s and window_s.isdigit() else None
-    if not window:
-        return MODEL_WINDOW_CAP   # env unset -> model-native window
-    return min(window, MODEL_WINDOW_CAP)
+    if window and window < limit:
+        limit = window            # shrink-only knob, as ever
+    return limit
 
 # Context estimate: last REAL assistant usage in the transcript tail
 def context_tokens():
@@ -110,7 +129,8 @@ limit = compact_limit()
 if limit is None:
     sys.exit(0)
 used = context_tokens()
-if used is None or used < limit * warn_pct // 100:
+threshold = min(FIXED_TRIGGER, limit * warn_pct // 100)
+if used is None or used < threshold:
     sys.exit(0)
 
 # Fresh handoff doc? (symlinks / foreign-uid files ignored — pre-create attack)
@@ -133,7 +153,8 @@ if fresh:
 
 out(
     f"Context at ~{used // 1000}k/{limit // 1000}k tokens "
-    f"({used * 100 // limit}% of compact limit). Before auto-compact fires: "
+    f"({used * 100 // limit}% of window, trigger ≥{threshold // 1000}k). "
+    "Before auto-compact fires: "
     "invoke the keep:handoff skill NOW via the Skill tool to write the "
     "pre-compact snapshot, then CONTINUE the interrupted task in this same "
     "session — do not end the turn or direct the user to run /compact. "
