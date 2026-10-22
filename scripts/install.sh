@@ -1003,10 +1003,13 @@ H = "$HOME/.claude/hooks"
 def get_defaults():
     return {
         "env": {
-            # No CLAUDE_CODE_AUTO_COMPACT_WINDOW by default — CC uses the
-            # model-native window (300k for glm-5.3 on CC 2.1.293) and the
-            # handoff hooks mirror it. Env stays an optional shrink-only
-            # knob for machines whose CC resolves a bigger window.
+            # Compact-follows-handoff chaining: this is the COMPACT-TIMING
+            # knob (the only one the CC binary reads), not a display knob.
+            # Hooks trigger handoff at min(256k floor, 80% x this window)
+            # = 204.8k; CC then auto-compacts at ~92% x 256k = ~235k and
+            # the session CONTINUES (post-compact-bridge points at the
+            # snapshot). Keeps working context lean on every machine.
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "256000",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
         },
