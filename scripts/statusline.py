@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime
 
@@ -102,32 +103,46 @@ def load_pricing():
     REFERENCE_MODEL,
 ) = load_pricing()
 
-# Default compact token limit (fallback when CLAUDE_CODE_AUTO_COMPACT_WINDOW
-# unset) — the model-native window CC enforces: glm-5.3 resolves to 300k on
-# CC 2.1.293. Mirrors MODEL_WINDOW_CAP in hooks/handoff-*.sh so the cap bar
-# and the handoff trigger always agree.
+# Last-resort window in real_window()'s chain — same value as
+# MEASURED_WINDOW in hooks/handoff-*.sh: glm-5.3 on CC 2.1.293
+# (--debug-to-stderr). Normally shadowed by the .cc-window cache that
+# each render refreshes from CC's own context_window_size.
 COMPACT_TOKEN_LIMIT_DEFAULT = 300_000
 
 
-def get_compact_config():
-    """Read the auto-compact window from env (set in settings.json).
+def real_window():
+    """Same denominator chain as hooks/handoff-*.sh: KEEP_MODEL_WINDOW
+    env > ~/.claude/.cc-window cache (written each render from CC's own
+    context_window_size) > measured fallback. Keeps the statusline cap
+    and the handoff trigger in lockstep on every machine."""
+    s = os.environ.get("KEEP_MODEL_WINDOW")
+    if s and s.isdigit():
+        return int(s)
+    try:
+        cache = os.path.expanduser("~/.claude/.cc-window")
+        if time.time() - os.path.getmtime(cache) < 30 * 86400:  # stale > 30d
+            v = int(open(cache).read().strip())
+            if v > 0:
+                return v
+    except (OSError, ValueError):
+        pass
+    return COMPACT_TOKEN_LIMIT_DEFAULT  # measured: glm-5.3 on CC 2.1.293
 
-    Returns (total_window, compact_limit). Window is None if env unset,
-    in which case compact_limit falls back to the hardcoded default.
-    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE was never honored by the CC binary —
-    the window itself is the only real knob, so limit == window.
-    """
+
+def get_compact_config():
+    """Returns (env_window, trigger). trigger = min(256k floor, 80% of the
+    real window) — the exact condition handoff-*.sh enforces, so the cap
+    bar visualizes distance-to-handoff, not an arbitrary default.
+    env_window is the CC-shrink override (None when unset); trigger is
+    None when auto-compact is disabled."""
     window_s = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
-    window = None
-    if window_s:
-        try:
-            window = int(window_s)
-        except ValueError:
-            pass
-    limit = window if window else COMPACT_TOKEN_LIMIT_DEFAULT
+    window = int(window_s) if window_s and window_s.isdigit() else None
     if os.environ.get("DISABLE_AUTO_COMPACT"):
-        limit = None  # auto-compact disabled; hide cap display
-    return window, limit
+        return window, None  # auto-compact disabled; hide cap display
+    real = real_window()
+    if window and window < real:
+        real = window          # shrink-only knob, as ever
+    return window, min(256_000, real * 80 // 100)
 
 
 def get_session_start(path):
