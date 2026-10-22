@@ -1003,9 +1003,10 @@ H = "$HOME/.claude/hooks"
 def get_defaults():
     return {
         "env": {
-            # 320k auto-compact window — the only knob the CC binary reads;
-            # hooks enforce handoff at their own WARN_PCT=80 of it
-            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "320000",
+            # No CLAUDE_CODE_AUTO_COMPACT_WINDOW by default — CC uses the
+            # model-native window (300k for glm-5.3 on CC 2.1.293) and the
+            # handoff hooks mirror it. Env stays an optional shrink-only
+            # knob for machines whose CC resolves a bigger window.
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
         },
