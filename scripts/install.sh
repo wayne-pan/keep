@@ -1005,11 +1005,12 @@ def get_defaults():
         "env": {
             # Compact-follows-handoff chaining: this is the COMPACT-TIMING
             # knob (the only one the CC binary reads), not a display knob.
-            # Hooks trigger handoff at min(256k floor, 80% x this window)
-            # = 204.8k; CC then auto-compacts at ~92% x 256k = ~235k and
-            # the session CONTINUES (post-compact-bridge points at the
-            # snapshot). Keeps working context lean on every machine.
-            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "256000",
+            # 320k is chosen so 80% x 320k = 256k = the hooks' FIXED_TRIGGER
+            # floor exactly — handoff fires AT 256k (the cap shown in the
+            # statusline), CC auto-compacts at ~300k (env - 20k reserve),
+            # and the session CONTINUES (post-compact-bridge points at the
+            # snapshot). Same chain on every machine.
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "320000",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_INSTALLATION_CHECKS": "1"
         },
