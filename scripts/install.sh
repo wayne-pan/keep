@@ -1151,7 +1151,11 @@ def merge_hooks(existing, defaults):
 FORCE_OVERWRITE = set()
 
 def deep_merge(existing, defaults):
-    """Add defaults into existing. Never overwrites except FORCE_OVERWRITE keys."""
+    """Add defaults into existing. Never overwrites except FORCE_OVERWRITE
+    keys — with one carve-out: env keys present in defaults are MANAGED by
+    the installer (defaults win), so a value change like 256000 -> 320000
+    actually reaches machines that already carry the older value. Machine-
+    local env keys (API tokens, model config) are untouched."""
     result = dict(existing) if existing else {}
     for key, dval in defaults.items():
         if key in FORCE_OVERWRITE:
@@ -1161,6 +1165,10 @@ def deep_merge(existing, defaults):
         elif isinstance(result[key], dict) and isinstance(dval, dict):
             if key == "hooks":
                 result[key] = merge_hooks(result[key], dval)
+            elif key == "env":
+                merged_env = dict(result[key])
+                merged_env.update(dval)   # managed keys: defaults win
+                result[key] = merged_env
             else:
                 result[key] = deep_merge(result[key], dval)
         elif isinstance(result[key], list) and isinstance(dval, list):
